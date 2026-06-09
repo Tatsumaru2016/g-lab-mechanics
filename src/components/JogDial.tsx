@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from "react";
 import { motion, AnimatePresence, type MotionValue } from "motion/react";
 import { CHAMBERS } from "../types";
-import { CHAMBER_STEP_DEG } from "../sceneOrbit";
+import { CHAMBER_STEP_DEG, SCOUTER_AIM_DEG } from "../sceneOrbit";
 import { Volume2, VolumeX } from "lucide-react";
 
 interface JogDialProps {
@@ -15,15 +15,34 @@ interface JogDialProps {
 
 const DIAL_SIZE = 380;
 const STEP_DEGREES = CHAMBER_STEP_DEG;
+const TICK_STEP = 6;
 
-const TICK = {
+/** Scouter HUD — deep blue, darker than cyan accent (#00C8FF) */
+const SCOUTER_BLUE = "#003DB8";
+
+/** Safe-dial geometry (viewBox 0 0 360 360) */
+const G = {
   cx: 180,
   cy: 180,
-  outer: 176,
-  ring: 173.5,
-  inner: { fine: 170, mid: 164, scene: 146 },
-  width: { fine: 0.48, mid: 0.72, scene: 1.75, sceneEmphasis: 2.2 },
-  opacity: { fine: 0.38, mid: 0.5, scene: 0.72, sceneEmphasis: 0.95 },
+  bezelOuter: 178,
+  bezelInner: 171,
+  scaleOuter: 169,
+  scaleInner: 127,
+  /** Scene numbers — inside short ticks, toward center */
+  numR: 136,
+  gripOuter: 122,
+  gripInner: 106,
+  knobR: 94,
+} as const;
+
+const DIAL_INK = {
+  tick: "#1A1F26",
+  tickMedium: "#4A5260",
+  tickMinor: "#7A8492",
+  number: "#1A1F26",
+  numberMuted: "#5A6370",
+  ringHair: "#B0B8C4",
+  ringDeep: "#78828E",
 } as const;
 
 /** Hub slightly past left edge → ~half the dial visible */
@@ -32,8 +51,7 @@ const DIAL_MOUNT_LEFT = DIAL_CENTER_X - DIAL_SIZE / 2;
 const DIAL_MOUNT_TOP = `calc(50% - ${DIAL_SIZE / 2}px)`;
 /** Match dial shell scale; scouter frame = tick band at 3 o'clock */
 const DIAL_RING_SCALE = 0.9;
-const RING_INNER_PX = TICK.inner.scene * DIAL_RING_SCALE;
-const RING_OUTER_PX = TICK.outer * DIAL_RING_SCALE;
+const RING_OUTER_PX = G.scaleOuter * DIAL_RING_SCALE;
 /** Fixed scouter channel: dial hub (left) → past outer tick ring */
 const SCOUTER_SLOT_EXTEND_PX = 24;
 const SCOUTER_SLOT = {
@@ -49,20 +67,8 @@ const SLOT_TOP = `calc(50% - ${SLOT_HEIGHT / 2}px)`;
 const DIAL_OCCLUSION_RIGHT_PX =
   DIAL_CENTER_X + RING_OUTER_PX + SCOUTER_SLOT_EXTEND_PX;
 /** Main scene content starts here — dial/scouter cleared with a modest gap */
-export const DIAL_SCENE_CLEARANCE_PX = Math.ceil(DIAL_OCCLUSION_RIGHT_PX + 48);
+export const DIAL_SCENE_CLEARANCE_PX = Math.ceil(DIAL_OCCLUSION_RIGHT_PX + 32);
 
-const FINE_TICK_STEP = 2;
-
-/** Cool metallic ink on silver track */
-const INK = {
-  strong: "#3A424E",
-  mid: "#5A6370",
-  light: "#7A8492",
-  faint: "#A8B0BC",
-} as const;
-
-/** Scouter HUD — deep blue, darker than cyan accent (#00C8FF) */
-const SCOUTER_BLUE = "#003DB8";
 const SCOUTER = {
   ink: SCOUTER_BLUE,
   border: "rgba(0, 61, 184, 0.48)",
@@ -75,48 +81,35 @@ const SCOUTER = {
   scanFlash: "rgba(0, 61, 184, 0.2)",
 } as const;
 
-function classifyTick(angle: number): "fine" | "mid" | "scene" {
-  const norm = ((angle % 360) + 360) % 360;
-  const rem = norm % STEP_DEGREES;
-  const half = STEP_DEGREES / 2;
-  const tol = FINE_TICK_STEP / 2;
-
-  if (rem < tol || rem > STEP_DEGREES - tol) return "scene";
-  if (Math.abs(rem - half) < tol) return "mid";
-  return "fine";
-}
-
-function tickStyle(kind: "fine" | "mid" | "scene", emphasized: boolean) {
-  if (kind === "fine") {
-    return {
-      inner: TICK.inner.fine,
-      stroke: INK.faint,
-      width: TICK.width.fine,
-      opacity: TICK.opacity.fine,
-    };
-  }
-  if (kind === "mid") {
-    return {
-      inner: TICK.inner.mid,
-      stroke: INK.light,
-      width: TICK.width.mid,
-      opacity: TICK.opacity.mid,
-    };
-  }
-  return {
-    inner: TICK.inner.scene,
-    stroke: emphasized ? "#4A5260" : "#5C6574",
-    width: emphasized ? TICK.width.sceneEmphasis : TICK.width.scene,
-    opacity: emphasized ? TICK.opacity.sceneEmphasis : TICK.opacity.scene,
-  };
-}
-
 function polar(angleDeg: number, radius: number) {
   const rad = (angleDeg * Math.PI) / 180;
   return {
-    x: TICK.cx + radius * Math.cos(rad),
-    y: TICK.cy + radius * Math.sin(rad),
+    x: G.cx + radius * Math.cos(rad),
+    y: G.cy + radius * Math.sin(rad),
   };
+}
+
+function markAngle(deg: number) {
+  return deg;
+}
+
+/** Scene index mark on dial — slot on full circle; 0 at scouter (3 o'clock) when rotation = 0 */
+function sceneMarkAngle(sceneIndex: number) {
+  return sceneIndex * STEP_DEGREES + SCOUTER_AIM_DEG;
+}
+
+function tickKindAtDeg(deg: number): "major" | "medium" | "minor" {
+  if (deg % STEP_DEGREES === 0) return "major";
+  if (deg % (STEP_DEGREES / 2) === 0) return "medium";
+  return "minor";
+}
+
+/** Tick lengths — clearer large / small contrast */
+function shortTickRadii(kind: "major" | "medium" | "minor") {
+  const band = G.scaleOuter - G.scaleInner;
+  const len =
+    kind === "major" ? band * 0.42 : kind === "medium" ? band * 0.28 : band * 0.16;
+  return { inner: G.scaleOuter - len, outer: G.scaleOuter - 0.2 };
 }
 
 /**
@@ -520,16 +513,15 @@ export default function JogDial({
   }, [isDragging, onChamberChange, muted, dialRotationMV]);
 
   const dialRevealed = isDragging || detentKick;
-  const previewIndex = Math.max(
+  const dialActiveIndex = Math.max(
     0,
     Math.min(CHAMBERS.length - 1, Math.round(-rotation / STEP_DEGREES))
   );
   const isLocked = !isDragging && Math.abs(rotation - detentAngle(currentChamber)) < 0.5;
-  const slotIndex = isDragging ? previewIndex : currentChamber;
-  const frameNumber = slotIndex + 1;
-  const isSceneSynced = isLocked && previewIndex === currentChamber;
+  const frameNumber = dialActiveIndex + 1;
+  const isSceneSynced = isLocked && dialActiveIndex === currentChamber;
 
-  const dialShellClass = `rounded-full dial-bezel-outer shadow-dial pointer-events-auto cursor-grab active:cursor-grabbing scale-[0.9] md:scale-95 transition-transform duration-100 origin-center ${
+  const dialShellClass = `rounded-full dial-safe-shell pointer-events-auto cursor-grab active:cursor-grabbing scale-[0.9] md:scale-95 transition-transform duration-100 origin-center overflow-hidden ${
     detentKick ? "scale-[0.87] md:scale-[0.925] rotate-[1.5deg]" : ""
   }`;
 
@@ -587,20 +579,19 @@ export default function JogDial({
             height: DIAL_SIZE,
           }}
         >
-          {/* Perforated mount plate — recessed behind bezel */}
-          <div className="absolute inset-[3px] rounded-full dial-mount-plate pointer-events-none opacity-90" />
-
-          {/* Static outer bezel lip */}
-          <div className="absolute inset-[5px] rounded-full dial-bezel-highlight pointer-events-none" />
-
-          {/* Recessed numbered track well (fixed, knob casts shadow here) */}
-          <div className="absolute inset-[14px] rounded-full dial-track-recess pointer-events-none" />
-
-          {/* Specular gloss over metal surfaces */}
-          <div className="absolute inset-[5px] rounded-full dial-metallic-gloss pointer-events-none z-[5]" />
-
-          {/* Fixed 12 o'clock index notch — reference dial marker */}
-          <div className="absolute top-[9px] left-1/2 -translate-x-1/2 w-[16px] h-[5px] rounded-[2px] dial-index-notch z-30 pointer-events-none" />
+          {/* Index hairline — scouter center (3 o'clock) */}
+          <div
+            className="absolute top-1/2 -translate-y-1/2 z-40 pointer-events-none"
+            style={{
+              right: 10,
+              width: 16,
+              height: 1.5,
+              borderRadius: 1,
+              background:
+                "linear-gradient(90deg, transparent 0%, #C43030 35%, #C43030 65%, transparent 100%)",
+              boxShadow: "0 0 6px rgba(196, 48, 48, 0.35)",
+            }}
+          />
 
           <motion.div
             style={{ width: 360, height: 360, transformOrigin: "center center" }}
@@ -615,155 +606,205 @@ export default function JogDial({
           >
             <svg className="w-full h-full absolute overflow-visible" viewBox="0 0 360 360">
               <defs>
-                <radialGradient id="dialRingSheen" cx="32%" cy="26%" r="72%">
-                  <stop offset="0%" stopColor="#F4F6FA" />
-                  <stop offset="48%" stopColor="#C8D0DC" />
-                  <stop offset="100%" stopColor="#98A2B0" />
+                <linearGradient id="dialBezelMetal" x1="15%" y1="10%" x2="85%" y2="90%">
+                  <stop offset="0%" stopColor="#FAFBFD" />
+                  <stop offset="38%" stopColor="#D8DEE8" />
+                  <stop offset="62%" stopColor="#A0A8B6" />
+                  <stop offset="100%" stopColor="#E2E7EE" />
+                </linearGradient>
+                <radialGradient id="dialScaleFace" cx="36%" cy="30%" r="75%">
+                  <stop offset="0%" stopColor="#FFFFFF" />
+                  <stop offset="55%" stopColor="#FAFBFC" />
+                  <stop offset="100%" stopColor="#ECEFF4" />
                 </radialGradient>
-                <linearGradient id="metalSegmentA" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#E4E9F0" />
-                  <stop offset="50%" stopColor="#B8C0CC" />
-                  <stop offset="100%" stopColor="#D0D6E0" />
+                <linearGradient id="dialScaleSheen" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="rgba(255,255,255,0.45)" />
+                  <stop offset="50%" stopColor="rgba(255,255,255,0.08)" />
+                  <stop offset="100%" stopColor="rgba(255,255,255,0)" />
                 </linearGradient>
-                <linearGradient id="metalSegmentB" x1="100%" y1="0%" x2="0%" y2="100%">
-                  <stop offset="0%" stopColor="#A0A8B6" />
-                  <stop offset="50%" stopColor="#8892A0" />
-                  <stop offset="100%" stopColor="#B0B8C4" />
+                <linearGradient id="dialWell" x1="50%" y1="0%" x2="50%" y2="100%">
+                  <stop offset="0%" stopColor="#F4F6FA" />
+                  <stop offset="100%" stopColor="#E2E7EE" />
                 </linearGradient>
+                <linearGradient id="dialGripMetal" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#C8CED8" />
+                  <stop offset="50%" stopColor="#9AA4B0" />
+                  <stop offset="100%" stopColor="#B8C0CC" />
+                </linearGradient>
+                <radialGradient id="dialKnobFace" cx="38%" cy="32%" r="62%">
+                  <stop offset="0%" stopColor="#F8FAFC" />
+                  <stop offset="45%" stopColor="#D0D6E0" />
+                  <stop offset="100%" stopColor="#8892A0" />
+                </radialGradient>
+                <radialGradient id="dialKnobHotspot" cx="34%" cy="28%" r="22%">
+                  <stop offset="0%" stopColor="rgba(255,255,255,0.9)" />
+                  <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+                </radialGradient>
+                <filter id="dialSoftShadow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="2" stdDeviation="4" floodColor="#1A2030" floodOpacity="0.12" />
+                </filter>
               </defs>
 
-              {/* Brushed silver tick band */}
-              <circle
-                cx={TICK.cx}
-                cy={TICK.cy}
-                r={(TICK.outer + TICK.inner.scene) / 2}
-                fill="none"
-                stroke="url(#dialRingSheen)"
-                strokeWidth={TICK.outer - TICK.inner.scene + 4}
-                opacity="0.98"
-              />
-              <circle
-                cx={TICK.cx}
-                cy={TICK.cy}
-                r={TICK.outer}
-                fill="none"
-                stroke="#8E98A8"
-                strokeWidth="0.9"
-                opacity="0.85"
-              />
-              <circle
-                cx={TICK.cx}
-                cy={TICK.cy}
-                r={TICK.inner.scene}
-                fill="none"
-                stroke="#B8C0CC"
-                strokeWidth="0.65"
-                opacity="0.9"
-              />
+              <g filter="url(#dialSoftShadow)">
+                {/* Opaque backing — prevents scene bleed-through */}
+                <circle cx={G.cx} cy={G.cy} r={G.bezelOuter} fill="#FFFFFF" />
 
-              {/* Unified tick scale: fine → mid → scene */}
-              {Array.from({ length: 360 / FINE_TICK_STEP }, (_, i) => {
-                const angle = i * FINE_TICK_STEP;
-                const kind = classifyTick(angle);
-                const sceneIdx = kind === "scene" ? detentIndex(angle) : -1;
-                const emphasized = kind === "scene" && sceneIdx === slotIndex;
-                const style = tickStyle(kind, emphasized);
-                const p1 = polar(angle, style.inner);
-                const p2 = polar(angle, TICK.outer);
+                {/* Outer bezel — smooth machined ring */}
+                <circle
+                  cx={G.cx}
+                  cy={G.cy}
+                  r={(G.bezelOuter + G.bezelInner) / 2}
+                  fill="none"
+                  stroke="url(#dialBezelMetal)"
+                  strokeWidth={G.bezelOuter - G.bezelInner}
+                />
+                <circle
+                  cx={G.cx}
+                  cy={G.cy}
+                  r={G.bezelOuter}
+                  fill="none"
+                  stroke="rgba(255,255,255,0.85)"
+                  strokeWidth="0.6"
+                />
 
-                return (
-                  <line
-                    key={`tick-${angle}`}
-                    x1={p1.x}
-                    y1={p1.y}
-                    x2={p2.x}
-                    y2={p2.y}
-                    stroke={style.stroke}
-                    strokeWidth={style.width}
-                    strokeLinecap="round"
-                    opacity={style.opacity}
-                  />
-                );
-              })}
+                {/* Scale face */}
+                <circle cx={G.cx} cy={G.cy} r={G.scaleOuter} fill="#FFFFFF" />
+                <circle cx={G.cx} cy={G.cy} r={G.scaleOuter} fill="url(#dialScaleFace)" />
+                <circle
+                  cx={G.cx}
+                  cy={G.cy}
+                  r={G.scaleOuter}
+                  fill="url(#dialScaleSheen)"
+                  opacity="0.35"
+                />
+                <circle
+                  cx={G.cx}
+                  cy={G.cy}
+                  r={G.scaleOuter}
+                  fill="none"
+                  stroke={DIAL_INK.ringDeep}
+                  strokeWidth="0.75"
+                />
+                <circle
+                  cx={G.cx}
+                  cy={G.cy}
+                  r={G.scaleInner}
+                  fill="none"
+                  stroke={DIAL_INK.ringDeep}
+                  strokeWidth="0.6"
+                />
 
-              {/* Inner dial — segmented plate + knurled gear ring (combo-lock style) */}
-              {Array.from({ length: 12 }, (_, i) => {
-                const a0 = ((i * 30 - 90) * Math.PI) / 180;
-                const a1 = (((i + 1) * 30 - 90) * Math.PI) / 180;
-                const r0 = 52;
-                const r1 = 98;
-                const x0 = TICK.cx + r0 * Math.cos(a0);
-                const y0 = TICK.cy + r0 * Math.sin(a0);
-                const x1 = TICK.cx + r1 * Math.cos(a0);
-                const y1 = TICK.cy + r1 * Math.sin(a0);
-                const x2 = TICK.cx + r1 * Math.cos(a1);
-                const y2 = TICK.cy + r1 * Math.sin(a1);
-                const x3 = TICK.cx + r0 * Math.cos(a1);
-                const y3 = TICK.cy + r0 * Math.sin(a1);
-                return (
-                  <path
-                    key={`dial-seg-${i}`}
-                    d={`M ${x0} ${y0} L ${x1} ${y1} A ${r1} ${r1} 0 0 1 ${x2} ${y2} L ${x3} ${y3} A ${r0} ${r0} 0 0 0 ${x0} ${y0} Z`}
-                    fill={i % 2 === 0 ? "url(#metalSegmentA)" : "url(#metalSegmentB)"}
-                    stroke="#8A929E"
-                    strokeWidth="0.4"
-                  />
-                );
-              })}
-              <circle
-                cx={TICK.cx}
-                cy={TICK.cy}
-                r={99}
-                fill="none"
-                stroke="#78828E"
-                strokeWidth="0.7"
-                opacity="0.9"
-              />
-              {Array.from({ length: 72 }, (_, i) => {
-                const angle = (i * 5 * Math.PI) / 180;
-                const rIn = 100;
-                const rOut = i % 2 === 0 ? 112 : 108;
-                const p1 = {
-                  x: TICK.cx + rIn * Math.cos(angle),
-                  y: TICK.cy + rIn * Math.sin(angle),
-                };
-                const p2 = {
-                  x: TICK.cx + rOut * Math.cos(angle),
-                  y: TICK.cy + rOut * Math.sin(angle),
-                };
+                {/* Inner well */}
+                <circle cx={G.cx} cy={G.cy} r={G.scaleInner} fill="url(#dialWell)" />
 
-                return (
-                  <line
-                    key={`knurl-${i}`}
-                    x1={p1.x}
-                    y1={p1.y}
-                    x2={p2.x}
-                    y2={p2.y}
-                    stroke={i % 2 === 0 ? "#707A88" : "#C4CAD4"}
-                    strokeWidth="1.15"
-                    strokeLinecap="round"
-                  />
-                );
-              })}
-              <circle
-                cx={TICK.cx}
-                cy={TICK.cy}
-                r={113}
-                fill="none"
-                stroke="#6E7886"
-                strokeWidth="0.55"
-                opacity="0.85"
-              />
+                {/* Ticks */}
+                {Array.from({ length: 360 / TICK_STEP }, (_, i) => {
+                  const deg = i * TICK_STEP;
+                  const kind = tickKindAtDeg(deg);
+                  const angle = markAngle(deg);
+                  const sceneIdx = deg / STEP_DEGREES;
+                  const emphasized =
+                    kind === "major" &&
+                    sceneIdx < CHAMBERS.length &&
+                    sceneIdx === dialActiveIndex;
+                  const { inner, outer } = shortTickRadii(kind);
+                  const p1 = polar(angle, inner);
+                  const p2 = polar(angle, outer);
+                  return (
+                    <line
+                      key={`tick-${deg}`}
+                      x1={p1.x}
+                      y1={p1.y}
+                      x2={p2.x}
+                      y2={p2.y}
+                      stroke={
+                        emphasized
+                          ? SCOUTER_BLUE
+                          : kind === "minor"
+                            ? DIAL_INK.tickMinor
+                            : kind === "medium"
+                              ? DIAL_INK.tickMedium
+                              : DIAL_INK.tick
+                      }
+                      strokeWidth={kind === "major" ? 1.5 : kind === "medium" ? 1 : 0.65}
+                      strokeLinecap="butt"
+                      opacity={emphasized ? 1 : 1}
+                    />
+                  );
+                })}
+
+                {/* Scene numbers */}
+                {CHAMBERS.map((chamber) => {
+                  const index = chamber.index;
+                  const angle = sceneMarkAngle(index);
+                  const pos = polar(angle, G.numR);
+                  const atPointer = index === dialActiveIndex;
+                  return (
+                    <text
+                      key={`scene-num-${index}`}
+                      x={pos.x}
+                      y={pos.y}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      transform={`rotate(${angle + 90} ${pos.x} ${pos.y})`}
+                      fill={atPointer ? SCOUTER_BLUE : DIAL_INK.numberMuted}
+                      fontSize={atPointer ? 13 : 11}
+                      fontWeight={atPointer ? 700 : 600}
+                      fontFamily="'JetBrains Mono', ui-monospace, monospace"
+                      letterSpacing={atPointer ? "0.06em" : "0.04em"}
+                      opacity={atPointer ? 1 : 0.88}
+                    >
+                      {index + 1}
+                    </text>
+                  );
+                })}
+
+                {/* Grip ring — clean torus */}
+                <circle
+                  cx={G.cx}
+                  cy={G.cy}
+                  r={(G.gripOuter + G.gripInner) / 2}
+                  fill="none"
+                  stroke="url(#dialGripMetal)"
+                  strokeWidth={G.gripOuter - G.gripInner}
+                />
+                <circle
+                  cx={G.cx}
+                  cy={G.cy}
+                  r={G.gripOuter}
+                  fill="none"
+                  stroke="rgba(255,255,255,0.35)"
+                  strokeWidth="0.35"
+                />
+
+                {/* Center knob — brushed cap */}
+                <circle cx={G.cx} cy={G.cy} r={G.knobR} fill="url(#dialKnobFace)" />
+                <circle
+                  cx={G.cx}
+                  cy={G.cy}
+                  r={G.knobR}
+                  fill="url(#dialKnobHotspot)"
+                  pointerEvents="none"
+                />
+                <circle
+                  cx={G.cx}
+                  cy={G.cy}
+                  r={G.knobR - 10}
+                  fill="none"
+                  stroke="rgba(255,255,255,0.45)"
+                  strokeWidth="0.4"
+                />
+                <circle
+                  cx={G.cx}
+                  cy={G.cy}
+                  r={G.knobR}
+                  fill="none"
+                  stroke="rgba(60,68,80,0.25)"
+                  strokeWidth="0.65"
+                />
+                <circle cx={G.cx} cy={G.cy} r={7} fill="#ECEFF4" stroke="#B0B8C4" strokeWidth="0.35" />
+              </g>
             </svg>
-
-            {/* Knob shadow on recessed track */}
-            <div className="absolute w-[108px] h-[108px] rounded-full pointer-events-none z-[1] bg-[radial-gradient(circle,rgba(0,0,0,0.16)_0%,transparent_68%)] translate-y-[3px]" />
-
-            {/* Raised center cap with grip groove */}
-            <div className="absolute dial-brushed-knob flex items-center justify-center pointer-events-none">
-              <div className="absolute w-[76%] h-[5px] rounded-full bg-gradient-to-r from-transparent via-[#8A929E]/55 to-transparent top-[46%]" />
-              <div className="absolute w-[18px] h-[18px] rounded-full border border-white/70 bg-gradient-to-br from-[#F0F3F8] to-[#98A2B0] shadow-[inset_0_1px_2px_rgba(255,255,255,0.95),inset_0_-2px_4px_rgba(50,58,70,0.2)]" />
-            </div>
           </motion.div>
         </div>
 
@@ -778,7 +819,7 @@ export default function JogDial({
           }}
         >
           <div
-            className="relative w-full h-full overflow-hidden rounded-r-lg transition-[box-shadow,border-color] duration-150 border-y border-r backdrop-blur-[2px]"
+            className="relative w-full h-full overflow-hidden rounded-r-md transition-[box-shadow,border-color] duration-200 border-y border-r backdrop-blur-[3px]"
             style={{
               borderColor: syncEffect
                 ? SCOUTER.borderStrong
@@ -882,7 +923,7 @@ export default function JogDial({
             {/* Scene name + number on tick ring */}
             <div className="absolute inset-y-0 left-8 right-2 z-10 flex items-center justify-end gap-2.5 pointer-events-none">
               <motion.div
-                key={`slot-${slotIndex}`}
+                key={`slot-${dialActiveIndex}`}
                 initial={syncEffect ? { scale: 0.7, opacity: 0.2 } : false}
                 animate={
                   syncEffect
@@ -909,7 +950,7 @@ export default function JogDial({
                     fontWeight: syncEffect || isSceneSynced ? 700 : 600,
                   }}
                 >
-                  {CHAMBERS[slotIndex].name}
+                  {CHAMBERS[dialActiveIndex].name}
                 </span>
                 <span
                   className="font-mono tabular-nums leading-none text-[13px]"

@@ -18,6 +18,7 @@ interface ChamberLayoutProps {
 }
 
 const pivotOrigin = `${DIAL_CENTER_X}px 50%`;
+/** Full-circle orbit around jog hub; semicircle dial is a viewport onto this ring */
 const sceneShell = "absolute inset-0 w-full h-full select-none";
 
 export default function ChamberLayout({
