@@ -1,0 +1,222 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Custom global styles for G.Lab mechanical styling and micro details */
+body {
+  background-color: #F6F6F4;
+  color: #111111;
+  font-family: var(--font-sans);
+  overflow: hidden; /* Prevent native manual scrolling */
+}
+
+/* Custom scrollbar just in case, but scrolling is disabled */
+::-webkit-scrollbar {
+  display: none;
+}
+
+/* Glassmorphism utility classes */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.dark-glass-panel {
+  background: rgba(17, 17, 17, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Soft technical shadows */
+.shadow-premium {
+  box-shadow: 
+    0 4px 30px rgba(0, 0, 0, 0.03), 
+    0 1px 3px rgba(0, 0, 0, 0.02),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.shadow-dial {
+  box-shadow:
+    14px 10px 40px rgba(22, 28, 38, 0.18),
+    8px 4px 18px rgba(22, 28, 38, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -3px 8px rgba(40, 48, 62, 0.12),
+    inset 2px 0 6px rgba(255, 255, 255, 0.35);
+}
+
+/* Brushed / cast metal jog dial */
+.dial-mount-plate {
+  background-color: #b4bac4;
+  background-image:
+    radial-gradient(circle at 28% 22%, rgba(255, 255, 255, 0.45) 0%, transparent 52%),
+    radial-gradient(circle, #8a919c 0.55px, transparent 0.55px);
+  background-size: 100% 100%, 6px 6px;
+  box-shadow:
+    inset 0 3px 10px rgba(30, 36, 48, 0.2),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.dial-bezel-outer {
+  background: linear-gradient(
+    148deg,
+    #f2f4f8 0%,
+    #c8ced8 28%,
+    #9aa3b0 48%,
+    #d8dde6 68%,
+    #eef1f6 100%
+  );
+  border: 1px solid rgba(118, 128, 142, 0.85);
+}
+
+.dial-bezel-highlight {
+  background: linear-gradient(
+    165deg,
+    rgba(255, 255, 255, 0.82) 0%,
+    rgba(255, 255, 255, 0.12) 42%,
+    rgba(60, 68, 82, 0.08) 100%
+  );
+  box-shadow:
+    inset 0 2px 4px rgba(255, 255, 255, 0.95),
+    inset 0 -5px 12px rgba(40, 48, 60, 0.14);
+}
+
+.dial-metallic-gloss {
+  background: linear-gradient(
+    125deg,
+    rgba(255, 255, 255, 0.55) 0%,
+    rgba(255, 255, 255, 0.08) 38%,
+    transparent 58%,
+    rgba(80, 90, 108, 0.06) 100%
+  );
+  mix-blend-mode: soft-light;
+}
+
+.dial-track-recess {
+  background: linear-gradient(180deg, #9aa3b0 0%, #c4cad4 32%, #e8ecf2 58%, #a8b0bc 100%);
+  box-shadow:
+    inset 0 5px 14px rgba(28, 34, 44, 0.22),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.7),
+    0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.dial-ring-band {
+  fill: url(#dialRingSheen);
+}
+
+.dial-brushed-knob {
+  position: relative;
+  width: 104px;
+  height: 104px;
+  border-radius: 50%;
+  z-index: 2;
+  background:
+    radial-gradient(circle at 32% 26%, rgba(255, 255, 255, 0.98) 0%, transparent 46%),
+    conic-gradient(
+      from -12deg,
+      #e8ecf2 0deg 30deg,
+      #a8b0bc 30deg 60deg,
+      #f0f3f8 60deg 90deg,
+      #98a0ae 90deg 120deg,
+      #e2e7ee 120deg 150deg,
+      #9aa2b0 150deg 180deg,
+      #eceff5 180deg 210deg,
+      #a0a8b6 210deg 240deg,
+      #e6eaf0 240deg 270deg,
+      #949caa 270deg 300deg,
+      #eef1f6 300deg 330deg,
+      #9ca4b2 330deg 360deg
+    );
+  border: 1px solid rgba(108, 118, 132, 0.75);
+  box-shadow:
+    0 7px 20px rgba(22, 28, 38, 0.2),
+    0 2px 6px rgba(22, 28, 38, 0.1),
+    inset 0 2px 4px rgba(255, 255, 255, 0.95),
+    inset 0 -6px 12px rgba(40, 48, 60, 0.18);
+}
+
+.dial-brushed-knob::before {
+  content: "";
+  position: absolute;
+  inset: 9px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  background: repeating-conic-gradient(
+    from 0deg,
+    rgba(255, 255, 255, 0.14) 0deg 1.5deg,
+    rgba(60, 68, 82, 0.06) 1.5deg 3deg
+  );
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.dial-brushed-knob::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 -7px 14px rgba(30, 36, 48, 0.14),
+    inset 0 8px 16px rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+}
+
+.dial-index-notch {
+  background: linear-gradient(180deg, #5c646e 0%, #2e343c 100%);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+/* Heavy chamber shutter doors */
+.shutter-door-panel {
+  background: linear-gradient(180deg, #d8dde6 0%, #a8b0bc 18%, #c4cad4 52%, #909aa8 100%);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -8px 24px rgba(30, 36, 48, 0.22),
+    0 0 48px rgba(22, 28, 38, 0.18);
+}
+
+.shutter-door-left {
+  border-right: 2px solid #6e7886;
+  box-shadow:
+    inset -6px 0 20px rgba(30, 36, 48, 0.15),
+    24px 0 48px rgba(0, 0, 0, 0.14);
+}
+
+.shutter-door-right {
+  border-left: 2px solid #6e7886;
+  box-shadow:
+    inset 6px 0 20px rgba(30, 36, 48, 0.15),
+    -24px 0 48px rgba(0, 0, 0, 0.14);
+}
+
+.shutter-door-bolt {
+  background: linear-gradient(145deg, #e8ecf2 0%, #b0b8c4 100%);
+  border: 1px solid #78828e;
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+/* Delicate noise texture overlay */
+.noise-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  content: "";
+  opacity: 0.015;
+  z-index: 9999;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3联%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+}
+
