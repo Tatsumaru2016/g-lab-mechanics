@@ -175,35 +175,20 @@ body {
     inset 0 1px 0 rgba(255, 255, 255, 0.28);
 }
 
-/* Heavy chamber shutter doors */
-.shutter-door-panel {
-  background: linear-gradient(180deg, #d8dde6 0%, #a8b0bc 18%, #c4cad4 52%, #909aa8 100%);
+/* Scene ring panel — thin frame + drop shadow */
+.scene-panel-frame {
+  border: 1px solid rgba(130, 138, 150, 0.32);
+  border-radius: 1.25rem;
   box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.55),
-    inset 0 -8px 24px rgba(30, 36, 48, 0.22),
-    0 0 48px rgba(22, 28, 38, 0.18);
+    0 14px 44px rgba(22, 28, 38, 0.11),
+    0 4px 14px rgba(22, 28, 38, 0.07),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.12);
 }
 
-.shutter-door-left {
-  border-right: 2px solid #6e7886;
-  box-shadow:
-    inset -6px 0 20px rgba(30, 36, 48, 0.15),
-    24px 0 48px rgba(0, 0, 0, 0.14);
-}
-
-.shutter-door-right {
-  border-left: 2px solid #6e7886;
-  box-shadow:
-    inset 6px 0 20px rgba(30, 36, 48, 0.15),
-    -24px 0 48px rgba(0, 0, 0, 0.14);
-}
-
-.shutter-door-bolt {
-  background: linear-gradient(145deg, #e8ecf2 0%, #b0b8c4 100%);
-  border: 1px solid #78828e;
-  box-shadow:
-    0 4px 14px rgba(0, 0, 0, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.7);
+.scene-panel-frame--adjacent {
+  overflow: visible;
 }
 
 /* Delicate noise texture overlay */

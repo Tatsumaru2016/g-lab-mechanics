@@ -1,17 +1,20 @@
 import React, { useRef, useState, useEffect } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence, type MotionValue } from "motion/react";
 import { CHAMBERS } from "../types";
+import { CHAMBER_STEP_DEG } from "../sceneOrbit";
 import { Volume2, VolumeX } from "lucide-react";
 
 interface JogDialProps {
   currentChamber: number;
+  /** Shared with scene ring — updated every animation frame */
+  dialRotationMV: MotionValue<number>;
   onChamberChange: (index: number) => void;
-  /** Fires when dial settles on a detent (sync shutter open with jog lock) */
+  /** Fires when dial settles on a detent */
   onSceneLocked?: () => void;
 }
 
 const DIAL_SIZE = 380;
-const STEP_DEGREES = 360 / CHAMBERS.length;
+const STEP_DEGREES = CHAMBER_STEP_DEG;
 
 const TICK = {
   cx: 180,
@@ -24,7 +27,7 @@ const TICK = {
 } as const;
 
 /** Hub slightly past left edge → ~half the dial visible */
-const DIAL_CENTER_X = -52;
+export const DIAL_CENTER_X = -52;
 const DIAL_MOUNT_LEFT = DIAL_CENTER_X - DIAL_SIZE / 2;
 const DIAL_MOUNT_TOP = `calc(50% - ${DIAL_SIZE / 2}px)`;
 /** Match dial shell scale; scouter frame = tick band at 3 o'clock */
@@ -33,8 +36,6 @@ const RING_INNER_PX = TICK.inner.scene * DIAL_RING_SCALE;
 const RING_OUTER_PX = TICK.outer * DIAL_RING_SCALE;
 /** Fixed scouter channel: dial hub (left) → past outer tick ring */
 const SCOUTER_SLOT_EXTEND_PX = 24;
-/** Readout sits on the tick ring, inset from the channel's right extension */
-const SLOT_NUMBER_LEFT = RING_OUTER_PX - 6;
 const SCOUTER_SLOT = {
   left: DIAL_CENTER_X,
   width: RING_OUTER_PX + SCOUTER_SLOT_EXTEND_PX,
@@ -44,8 +45,11 @@ const SLOT_LEFT = SCOUTER_SLOT.left;
 const SLOT_WIDTH = SCOUTER_SLOT.width;
 const SLOT_HEIGHT = SCOUTER_SLOT.height;
 const SLOT_TOP = `calc(50% - ${SLOT_HEIGHT / 2}px)`;
-/** Scene content inset — hub + channel to tick ring */
-export const DIAL_SCENE_CLEARANCE = "pl-[148px] md:pl-[160px]";
+/** Right edge of dial + scouter channel (px from viewport left) */
+const DIAL_OCCLUSION_RIGHT_PX =
+  DIAL_CENTER_X + RING_OUTER_PX + SCOUTER_SLOT_EXTEND_PX;
+/** Main scene content starts here — dial/scouter cleared with a modest gap */
+export const DIAL_SCENE_CLEARANCE_PX = Math.ceil(DIAL_OCCLUSION_RIGHT_PX + 48);
 
 const FINE_TICK_STEP = 2;
 
@@ -57,14 +61,18 @@ const INK = {
   faint: "#A8B0BC",
 } as const;
 
-/** Scouter / slot HUD — blue transparent readout channel */
+/** Scouter HUD — deep blue, darker than cyan accent (#00C8FF) */
+const SCOUTER_BLUE = "#003DB8";
 const SCOUTER = {
-  border: "rgba(0, 87, 255, 0.45)",
-  borderStrong: "rgba(0, 87, 255, 0.72)",
-  fill: "rgba(0, 87, 255, 0.1)",
-  fillStrong: "rgba(0, 87, 255, 0.22)",
-  beam: "rgba(0, 200, 255, 0.55)",
-  glow: "rgba(0, 87, 255, 0.35)",
+  ink: SCOUTER_BLUE,
+  border: "rgba(0, 61, 184, 0.48)",
+  borderStrong: "rgba(0, 61, 184, 0.72)",
+  fill: "rgba(0, 61, 184, 0.1)",
+  fillStrong: "rgba(0, 61, 184, 0.22)",
+  beam: "rgba(0, 61, 184, 0.5)",
+  glow: "rgba(0, 61, 184, 0.35)",
+  scanLine: "rgba(0, 61, 184, 0.95)",
+  scanFlash: "rgba(0, 61, 184, 0.2)",
 } as const;
 
 function classifyTick(angle: number): "fine" | "mid" | "scene" {
@@ -148,7 +156,12 @@ function detentIndex(angle: number): number {
   return Math.max(0, Math.min(CHAMBERS.length - 1, Math.round(-angle / STEP_DEGREES)));
 }
 
-export default function JogDial({ currentChamber, onChamberChange, onSceneLocked }: JogDialProps) {
+export default function JogDial({
+  currentChamber,
+  dialRotationMV,
+  onChamberChange,
+  onSceneLocked,
+}: JogDialProps) {
   const dialRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
 
@@ -169,6 +182,7 @@ export default function JogDial({ currentChamber, onChamberChange, onSceneLocked
   const pendingSnapRef = useRef(false);
   const snapSceneChangedRef = useRef(false);
   const dragStartChamberRef = useRef(currentChamber);
+  const isDraggingRef = useRef(false);
   const kickTimerRef = useRef<number | null>(null);
 
   const getAudioContext = () => {
@@ -345,6 +359,7 @@ export default function JogDial({ currentChamber, onChamberChange, onSceneLocked
       const peak = targetRot + overshoot * 0.55;
       setRotation(peak);
       rotationRef.current = peak;
+      dialRotationMV.set(peak);
       window.requestAnimationFrame(() => {
         pendingSnapRef.current = true;
         setRotation(targetRot);
@@ -358,6 +373,7 @@ export default function JogDial({ currentChamber, onChamberChange, onSceneLocked
 
     if (Math.abs(rotationRef.current - targetRot) < 0.4) {
       pendingSnapRef.current = false;
+      dialRotationMV.set(targetRot);
       triggerSnapFeedback(scenePulse);
       return;
     }
@@ -382,10 +398,12 @@ export default function JogDial({ currentChamber, onChamberChange, onSceneLocked
   }, [currentChamber]);
 
   useEffect(() => {
+    if (isDraggingRef.current) return;
     const rot = detentAngle(currentChamber);
     setRotation(rot);
     rotationRef.current = rot;
     lastLoggedChamber.current = currentChamber;
+    // Ring follows via motion onUpdate during spring — do not snap MV here
   }, [currentChamber]);
 
   useEffect(() => {
@@ -431,6 +449,7 @@ export default function JogDial({ currentChamber, onChamberChange, onSceneLocked
   };
 
   const handleStart = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    isDraggingRef.current = true;
     setIsDragging(true);
     dragStartChamberRef.current = currentChamberRef.current;
     dragStartAngle.current = getMouseAngle(e) - rotationRef.current;
@@ -460,6 +479,7 @@ export default function JogDial({ currentChamber, onChamberChange, onSceneLocked
 
       rotationRef.current = physical;
       setRotation(physical);
+      dialRotationMV.set(physical);
 
       const idx = detentIndex(physical);
       const atDetent = Math.abs(physical - detentAngle(idx)) < PHYSICS.detentLockDeg;
@@ -474,6 +494,7 @@ export default function JogDial({ currentChamber, onChamberChange, onSceneLocked
     };
 
     const handleEnd = () => {
+      isDraggingRef.current = false;
       setIsDragging(false);
       const physical = applyDetentWell(rotationRef.current);
       const targetIndex = detentIndex(physical);
@@ -496,7 +517,7 @@ export default function JogDial({ currentChamber, onChamberChange, onSceneLocked
       window.removeEventListener("touchmove", handleMove);
       window.removeEventListener("touchend", handleEnd);
     };
-  }, [isDragging, onChamberChange, muted]);
+  }, [isDragging, onChamberChange, muted, dialRotationMV]);
 
   const dialRevealed = isDragging || detentKick;
   const previewIndex = Math.max(
@@ -517,13 +538,13 @@ export default function JogDial({ currentChamber, onChamberChange, onSceneLocked
     : isSettling || detentKick
       ? {
           type: "spring" as const,
-          stiffness: 640,
+          stiffness: 360,
           damping: 14,
-          mass: 0.78,
-          restDelta: 0.04,
-          restSpeed: 0.04,
+          mass: 1.15,
+          restDelta: 0.025,
+          restSpeed: 0.025,
         }
-      : { type: "spring" as const, stiffness: 360, damping: 32, mass: 0.95 };
+      : { type: "spring" as const, stiffness: 260, damping: 28, mass: 1.25 };
 
   return (
     <div className="absolute inset-0 z-20 group/dial select-none pointer-events-none overflow-visible">
@@ -585,6 +606,10 @@ export default function JogDial({ currentChamber, onChamberChange, onSceneLocked
             style={{ width: 360, height: 360, transformOrigin: "center center" }}
             animate={{ rotate: rotation }}
             transition={rotateTransition}
+            onUpdate={(latest) => {
+              const r = latest.rotate;
+              if (typeof r === "number") dialRotationMV.set(r);
+            }}
             onAnimationComplete={handleRotateSettled}
             className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center justify-center"
           >
@@ -753,16 +778,20 @@ export default function JogDial({ currentChamber, onChamberChange, onSceneLocked
           }}
         >
           <div
-            className={`relative w-full h-full overflow-hidden rounded-r-lg transition-[box-shadow,border-color] duration-150 border-y border-r backdrop-blur-[2px] ${
-              syncEffect
-                ? "shadow-[inset_0_0_0_2px_rgba(0,87,255,0.55),0_0_20px_rgba(0,87,255,0.22)] border-[#0057FF]/75"
-                : isSceneSynced
-                  ? "shadow-[inset_0_0_0_1.5px_rgba(0,87,255,0.4),0_0_10px_rgba(0,87,255,0.1)] border-[#0057FF]/55"
-                  : "shadow-[inset_0_1px_6px_rgba(0,87,255,0.08)] border-[#0057FF]/35"
-            }`}
+            className="relative w-full h-full overflow-hidden rounded-r-lg transition-[box-shadow,border-color] duration-150 border-y border-r backdrop-blur-[2px]"
             style={{
+              borderColor: syncEffect
+                ? SCOUTER.borderStrong
+                : isSceneSynced
+                  ? SCOUTER.border
+                  : "rgba(0, 61, 184, 0.32)",
+              boxShadow: syncEffect
+                ? `inset 0 0 0 2px ${SCOUTER.borderStrong}, 0 0 20px ${SCOUTER.glow}`
+                : isSceneSynced
+                  ? `inset 0 0 0 1.5px ${SCOUTER.border}, 0 0 10px rgba(0, 61, 184, 0.1)`
+                  : `inset 0 1px 6px rgba(0, 61, 184, 0.08)`,
               background: syncEffect
-                ? `linear-gradient(90deg, ${SCOUTER.fillStrong} 0%, rgba(0,200,255,0.12) 100%)`
+                ? `linear-gradient(90deg, ${SCOUTER.fillStrong} 0%, rgba(0, 61, 184, 0.1) 100%)`
                 : `linear-gradient(90deg, ${SCOUTER.fill} 0%, rgba(255,255,255,0.2) 100%)`,
             }}
           >
@@ -782,8 +811,7 @@ export default function JogDial({ currentChamber, onChamberChange, onSceneLocked
                     transition={{ duration: 0.44, ease: [0.22, 1, 0.36, 1] }}
                     className="absolute inset-y-0 pointer-events-none"
                     style={{
-                      background:
-                        "linear-gradient(90deg, transparent 0%, rgba(0,87,255,0.12) 30%, rgba(0,200,255,0.55) 50%, rgba(0,87,255,0.12) 70%, transparent 100%)",
+                      background: `linear-gradient(90deg, transparent 0%, rgba(0, 61, 184, 0.12) 30%, ${SCOUTER.beam} 50%, rgba(0, 61, 184, 0.12) 70%, transparent 100%)`,
                     }}
                   />
                   <motion.div
@@ -798,9 +826,8 @@ export default function JogDial({ currentChamber, onChamberChange, onSceneLocked
                     transition={{ duration: 0.44, ease: [0.22, 1, 0.36, 1] }}
                     className="absolute inset-y-[2px] pointer-events-none rounded-sm"
                     style={{
-                      background:
-                        "linear-gradient(90deg, transparent, rgba(180,240,255,0.95) 48%, rgba(0,200,255,0.9) 50%, rgba(180,240,255,0.95) 52%, transparent)",
-                      boxShadow: "0 0 14px rgba(0,200,255,0.65), 0 0 28px rgba(0,87,255,0.35)",
+                      background: `linear-gradient(90deg, transparent, rgba(0, 61, 184, 0.55) 48%, ${SCOUTER.scanLine} 50%, rgba(0, 61, 184, 0.55) 52%, transparent)`,
+                      boxShadow: `0 0 14px ${SCOUTER.glow}, 0 0 28px rgba(0, 61, 184, 0.28)`,
                     }}
                   />
                   <motion.div
@@ -813,9 +840,10 @@ export default function JogDial({ currentChamber, onChamberChange, onSceneLocked
                     }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.44, ease: [0.22, 1, 0.36, 1] }}
-                    className="absolute inset-y-1 w-[2px] origin-center bg-[#00C8FF] pointer-events-none"
+                    className="absolute inset-y-1 w-[2px] origin-center pointer-events-none"
                     style={{
-                      boxShadow: "0 0 10px #00C8FF, 0 0 20px rgba(0,87,255,0.8)",
+                      backgroundColor: SCOUTER.ink,
+                      boxShadow: `0 0 10px ${SCOUTER.glow}, 0 0 20px rgba(0, 61, 184, 0.55)`,
                     }}
                   />
                   <motion.div
@@ -824,30 +852,37 @@ export default function JogDial({ currentChamber, onChamberChange, onSceneLocked
                     animate={{ opacity: [0, 0, 0.55, 0] }}
                     exit={{ opacity: 0 }}
                     transition={{ duration: 0.44, ease: "easeOut", times: [0, 0.72, 0.86, 1] }}
-                    className="absolute inset-0 bg-[#00C8FF]/20 rounded-r-lg pointer-events-none"
+                    className="absolute inset-0 rounded-r-lg pointer-events-none"
+                    style={{ backgroundColor: SCOUTER.scanFlash }}
                   />
                 </>
               )}
             </AnimatePresence>
 
             {/* Right edge = outer tick ring */}
-            <div className="absolute inset-y-2 right-0 w-px bg-[#0057FF]/40 pointer-events-none" />
             <div
-              className={`absolute inset-y-2 left-4 right-2 border-y border-dashed pointer-events-none ${
-                isSceneSynced ? "border-[#0057FF]/30" : "border-[#0057FF]/18"
-              }`}
+              className="absolute inset-y-2 right-0 w-px pointer-events-none"
+              style={{ backgroundColor: SCOUTER.border }}
+            />
+            <div
+              className="absolute inset-y-2 left-4 right-2 border-y border-dashed pointer-events-none"
+              style={{
+                borderColor: isSceneSynced
+                  ? "rgba(0, 61, 184, 0.3)"
+                  : "rgba(0, 61, 184, 0.18)",
+              }}
             />
 
             {/* Hub pin (left) */}
-            <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-[78%] bg-[#0057FF]/50 rounded-full pointer-events-none" />
-
-            {/* Number on tick ring — slightly left of channel end */}
             <div
-              className="absolute top-1/2 -translate-y-1/2 z-10"
-              style={{ left: SLOT_NUMBER_LEFT }}
-            >
-              <motion.span
-                key={`frame-${frameNumber}`}
+              className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-[78%] rounded-full pointer-events-none"
+              style={{ backgroundColor: SCOUTER.borderStrong }}
+            />
+
+            {/* Scene name + number on tick ring */}
+            <div className="absolute inset-y-0 left-8 right-2 z-10 flex items-center justify-end gap-2.5 pointer-events-none">
+              <motion.div
+                key={`slot-${slotIndex}`}
                 initial={syncEffect ? { scale: 0.7, opacity: 0.2 } : false}
                 animate={
                   syncEffect
@@ -862,13 +897,36 @@ export default function JogDial({ currentChamber, onChamberChange, onSceneLocked
                     ? { duration: 0.42, ease: [0.34, 1.4, 0.64, 1] }
                     : { type: "spring", stiffness: 520, damping: 28 }
                 }
-                className={`relative font-mono tabular-nums leading-none ${
-                  syncEffect || isSceneSynced
-                    ? "text-[13px] font-extrabold text-[#0057FF] drop-shadow-[0_0_8px_rgba(0,87,255,0.4)]"
-                    : "text-[13px] font-bold text-[#0057FF]/50"
-                }`}
+                className="relative flex items-center gap-2.5"
               >
-                {frameNumber}
+                <span
+                  className="font-mono uppercase tracking-[0.12em] leading-none whitespace-nowrap text-[8px]"
+                  style={{
+                    color:
+                      syncEffect || isSceneSynced
+                        ? SCOUTER.ink
+                        : "rgba(0, 61, 184, 0.45)",
+                    fontWeight: syncEffect || isSceneSynced ? 700 : 600,
+                  }}
+                >
+                  {CHAMBERS[slotIndex].name}
+                </span>
+                <span
+                  className="font-mono tabular-nums leading-none text-[13px]"
+                  style={{
+                    color:
+                      syncEffect || isSceneSynced
+                        ? SCOUTER.ink
+                        : "rgba(0, 61, 184, 0.5)",
+                    fontWeight: syncEffect || isSceneSynced ? 800 : 700,
+                    filter:
+                      syncEffect || isSceneSynced
+                        ? `drop-shadow(0 0 8px ${SCOUTER.glow})`
+                        : undefined,
+                  }}
+                >
+                  {frameNumber}
+                </span>
                 <AnimatePresence>
                   {syncEffect && (
                     <motion.span
@@ -877,13 +935,14 @@ export default function JogDial({ currentChamber, onChamberChange, onSceneLocked
                       animate={{ opacity: [0, 1, 0], y: [3, -2, -5], scale: [0.8, 1, 0.9] }}
                       exit={{ opacity: 0 }}
                       transition={{ duration: 0.5 }}
-                      className="absolute -top-2.5 right-0 text-[5px] font-bold tracking-widest text-[#00C8FF] whitespace-nowrap"
+                      className="absolute -top-2.5 right-0 text-[5px] font-bold tracking-widest whitespace-nowrap"
+                      style={{ color: SCOUTER.ink }}
                     >
                       LOCK
                     </motion.span>
                   )}
                 </AnimatePresence>
-              </motion.span>
+              </motion.div>
             </div>
           </div>
 
@@ -898,9 +957,8 @@ export default function JogDial({ currentChamber, onChamberChange, onSceneLocked
                 transition={{ duration: 0.5, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
                 className="absolute left-full top-1/2 -translate-y-1/2 h-[46px] w-[min(36vw,220px)] origin-left pointer-events-none rounded-r-md"
                 style={{
-                  background:
-                    "linear-gradient(90deg, rgba(0,87,255,0.32) 0%, rgba(0,200,255,0.14) 45%, transparent 100%)",
-                  boxShadow: "0 0 22px rgba(0,87,255,0.12)",
+                  background: `linear-gradient(90deg, rgba(0, 61, 184, 0.32) 0%, rgba(0, 61, 184, 0.12) 45%, transparent 100%)`,
+                  boxShadow: `0 0 22px rgba(0, 61, 184, 0.12)`,
                 }}
               />
             )}

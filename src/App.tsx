@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence, useMotionValue } from "motion/react";
 import JogDial from "./components/JogDial";
 import ChamberLayout from "./components/ChamberLayout";
 import { CHAMBERS } from "./types";
@@ -19,7 +19,7 @@ import { Info, HelpCircle, X, Compass, ChevronDown, CheckCircle, Shield, Radio, 
 
 export default function App() {
   const [currentChamber, setCurrentChamber] = useState(0);
-  const [dialLockPulse, setDialLockPulse] = useState(0);
+  const dialRotationMV = useMotionValue(0);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
 
@@ -61,43 +61,48 @@ export default function App() {
   };
 
   // Render proper chamber component mapping
-  const renderActiveChamber = (chamberIndex: number) => {
+  const renderActiveChamber = (
+    chamberIndex: number,
+    meta: { isVisible: boolean; isFocused: boolean; isActive: boolean }
+  ) => {
+    const { isActive } = meta;
+
     switch (chamberIndex) {
       case 0:
         return (
           <Chamber01Entry
-            isActive={currentChamber === 0}
+            isActive={isActive}
             onNext={() => setCurrentChamber(1)}
           />
         );
       case 1:
-        return <Chamber02Thinking isActive={currentChamber === 1} />;
+        return <Chamber02Thinking isActive={isActive} />;
       case 2:
         return (
           <Chamber03Ecosystem
-            isActive={currentChamber === 2}
+            isActive={isActive}
             onSelectChamber={(index) => setCurrentChamber(index)}
           />
         );
       case 3:
-        return <Chamber04Game isActive={currentChamber === 3} />;
+        return <Chamber04Game isActive={isActive} />;
       case 4:
-        return <Chamber05Trans isActive={currentChamber === 4} />;
+        return <Chamber05Trans isActive={isActive} />;
       case 5:
-        return <Chamber06Engine isActive={currentChamber === 5} />;
+        return <Chamber06Engine isActive={isActive} />;
       case 6:
-        return <Chamber07Showcase isActive={currentChamber === 6} />;
+        return <Chamber07Showcase isActive={isActive} />;
       case 7:
-        return <Chamber08Future isActive={currentChamber === 7} />;
+        return <Chamber08Future isActive={isActive} />;
       case 8:
         return (
           <Chamber09Contact
-            isActive={currentChamber === 8}
+            isActive={isActive}
             onCollapseToggle={() => setIsCollapsed(true)}
           />
         );
       default:
-        return <Chamber01Entry isActive={currentChamber === 0} onNext={() => setCurrentChamber(1)} />;
+        return <Chamber01Entry isActive={isActive} onNext={() => setCurrentChamber(1)} />;
     }
   };
 
@@ -183,16 +188,16 @@ export default function App() {
 
             <ChamberLayout
               currentChamber={currentChamber}
-              dialLockPulse={dialLockPulse}
+              dialRotationMV={dialRotationMV}
               navigation={
                 <JogDial
                   currentChamber={currentChamber}
+                  dialRotationMV={dialRotationMV}
                   onChamberChange={(idx) => setCurrentChamber(idx)}
-                  onSceneLocked={() => setDialLockPulse((p) => p + 1)}
                 />
               }
             >
-              {(displayedChamber) => renderActiveChamber(displayedChamber)}
+              {(chamberIndex, meta) => renderActiveChamber(chamberIndex, meta)}
             </ChamberLayout>
           </motion.div>
         )}
