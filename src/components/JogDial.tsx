@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from "react";
 import { motion, AnimatePresence, type MotionValue } from "motion/react";
 import { CHAMBERS } from "../types";
 import { CHAMBER_STEP_DEG, SCOUTER_AIM_DEG } from "../sceneOrbit";
+import { playGearMeshLock, playRatchetTick, type RatchetKind } from "../audio/mechanicalDial";
 import { Volume2, VolumeX } from "lucide-react";
 
 interface JogDialProps {
@@ -98,10 +99,15 @@ function sceneMarkAngle(sceneIndex: number) {
   return sceneIndex * STEP_DEGREES + SCOUTER_AIM_DEG;
 }
 
-function tickKindAtDeg(deg: number): "major" | "medium" | "minor" {
+function tickKindAtDeg(deg: number): RatchetKind {
   if (deg % STEP_DEGREES === 0) return "major";
   if (deg % (STEP_DEGREES / 2) === 0) return "medium";
   return "minor";
+}
+
+function ratchetKindForTickSlot(tickSlot: number): RatchetKind {
+  const deg = (((tickSlot * TICK_STEP) % 360) + 360) % 360;
+  return tickKindAtDeg(deg);
 }
 
 /** Tick lengths — clearer large / small contrast */
@@ -177,6 +183,7 @@ export default function JogDial({
   const dragStartChamberRef = useRef(currentChamber);
   const isDraggingRef = useRef(false);
   const kickTimerRef = useRef<number | null>(null);
+  const lastTickSlotRef = useRef(0);
 
   const getAudioContext = () => {
     if (!audioContextRef.current) {
@@ -187,131 +194,14 @@ export default function JogDial({
     return ctx;
   };
 
-  /** Passing tick while rotating — soft, not the final gear lock */
-  const playDetentTick = () => {
-    if (muted) return;
-    try {
-      const ctx = getAudioContext();
-      const now = ctx.currentTime;
-
-      const tick = ctx.createOscillator();
-      const tickGain = ctx.createGain();
-      tick.type = "triangle";
-      tick.frequency.setValueAtTime(520, now);
-      tick.frequency.exponentialRampToValueAtTime(280, now + 0.012);
-      tickGain.gain.setValueAtTime(0.045, now);
-      tickGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.016);
-      tick.connect(tickGain);
-      tickGain.connect(ctx.destination);
-      tick.start(now);
-      tick.stop(now + 0.018);
-    } catch {
-      // Audio fallback
-    }
-  };
-
-  /** Gear mesh lock — teeth engage when dial stops on final detent */
-  const playGearMeshLock = (variant: "full" | "confirm" = "full") => {
-    if (muted) return;
-    try {
-      const ctx = getAudioContext();
-      const now = ctx.currentTime;
-      const amp = variant === "full" ? 1 : 0.48;
-
-      const meshTooth = (t: number, freq: number, gainAmp: number, q = 7.5) => {
-        const osc = ctx.createOscillator();
-        osc.type = "square";
-        osc.frequency.setValueAtTime(freq, t);
-        osc.frequency.exponentialRampToValueAtTime(freq * 0.52, t + 0.013);
-
-        const filter = ctx.createBiquadFilter();
-        filter.type = "bandpass";
-        filter.frequency.value = freq;
-        filter.Q.value = q;
-
-        const gain = ctx.createGain();
-        gain.gain.setValueAtTime(gainAmp * amp, t);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.024);
-
-        osc.connect(filter);
-        filter.connect(gain);
-        gain.connect(ctx.destination);
-        osc.start(t);
-        osc.stop(t + 0.028);
-      };
-
-      const housing = ctx.createOscillator();
-      const housingGain = ctx.createGain();
-      const housingLp = ctx.createBiquadFilter();
-      housing.type = "sawtooth";
-      housing.frequency.setValueAtTime(68, now);
-      housing.frequency.exponentialRampToValueAtTime(34, now + 0.1);
-      housingLp.type = "lowpass";
-      housingLp.frequency.value = 200;
-      housingGain.gain.setValueAtTime(0.09 * amp, now);
-      housingGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.105);
-      housing.connect(housingLp);
-      housingLp.connect(housingGain);
-      housingGain.connect(ctx.destination);
-      housing.start(now);
-      housing.stop(now + 0.11);
-
-      meshTooth(now + 0.016, 760, 0.055);
-      meshTooth(now + 0.04, 980, 0.07);
-      meshTooth(now + 0.064, 1280, 0.085, 9);
-
-      const seatTime = now + 0.072;
-      const seat = ctx.createOscillator();
-      const seatGain = ctx.createGain();
-      seat.type = "triangle";
-      seat.frequency.setValueAtTime(195, seatTime);
-      seat.frequency.exponentialRampToValueAtTime(82, seatTime + 0.065);
-      seatGain.gain.setValueAtTime(0.24 * amp, seatTime);
-      seatGain.gain.exponentialRampToValueAtTime(0.0001, seatTime + 0.075);
-      seat.connect(seatGain);
-      seatGain.connect(ctx.destination);
-      seat.start(seatTime);
-      seat.stop(seatTime + 0.08);
-
-      const ring = ctx.createOscillator();
-      const ringGain = ctx.createGain();
-      ring.type = "sine";
-      ring.frequency.setValueAtTime(1680, seatTime + 0.004);
-      ring.frequency.exponentialRampToValueAtTime(620, seatTime + 0.05);
-      ringGain.gain.setValueAtTime(0.08 * amp, seatTime + 0.004);
-      ringGain.gain.exponentialRampToValueAtTime(0.0001, seatTime + 0.055);
-      ring.connect(ringGain);
-      ringGain.connect(ctx.destination);
-      ring.start(seatTime + 0.004);
-      ring.stop(seatTime + 0.06);
-
-      const bufLen = Math.floor(ctx.sampleRate * 0.032);
-      const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
-      const samples = buf.getChannelData(0);
-      for (let i = 0; i < bufLen; i++) {
-        samples[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufLen * 0.045));
-      }
-      const scrape = ctx.createBufferSource();
-      scrape.buffer = buf;
-      const scrapeF = ctx.createBiquadFilter();
-      scrapeF.type = "bandpass";
-      scrapeF.frequency.value = 2400;
-      scrapeF.Q.value = 2.8;
-      const scrapeG = ctx.createGain();
-      scrapeG.gain.setValueAtTime(0.0001, seatTime);
-      scrapeG.gain.linearRampToValueAtTime(0.16 * amp, seatTime + 0.006);
-      scrapeG.gain.exponentialRampToValueAtTime(0.0001, seatTime + 0.038);
-      scrape.connect(scrapeF);
-      scrapeF.connect(scrapeG);
-      scrapeG.connect(ctx.destination);
-      scrape.start(seatTime);
-    } catch {
-      // Audio fallback
-    }
-  };
-
   const triggerSnapFeedback = (withScenePulse: boolean) => {
-    playGearMeshLock(withScenePulse ? "full" : "confirm");
+    if (!muted) {
+      try {
+        playGearMeshLock(getAudioContext(), withScenePulse ? "full" : "confirm");
+      } catch {
+        // Audio fallback
+      }
+    }
     setDetentKick(true);
     // Lock VFX on every snap; full pulse when scene index actually changed
     setSyncEffect(true);
@@ -449,6 +339,7 @@ export default function JogDial({
     lastMoveAngleRef.current = rotationRef.current;
     lastMoveTimeRef.current = performance.now();
     velocityRef.current = 0;
+    lastTickSlotRef.current = Math.round(-rotationRef.current / TICK_STEP);
     if (audioContextRef.current?.state === "suspended") {
       audioContextRef.current.resume();
     }
@@ -474,12 +365,23 @@ export default function JogDial({
       setRotation(physical);
       dialRotationMV.set(physical);
 
+      const tickSlot = Math.round(-physical / TICK_STEP);
+      if (tickSlot !== lastTickSlotRef.current) {
+        lastTickSlotRef.current = tickSlot;
+        if (!muted) {
+          try {
+            playRatchetTick(getAudioContext(), ratchetKindForTickSlot(tickSlot));
+          } catch {
+            // Audio fallback
+          }
+        }
+      }
+
       const idx = detentIndex(physical);
       const atDetent = Math.abs(physical - detentAngle(idx)) < PHYSICS.detentLockDeg;
 
       if (idx !== lastLoggedChamber.current && atDetent) {
         lastLoggedChamber.current = idx;
-        playDetentTick();
         if (idx !== currentChamberRef.current) {
           onChamberChange(idx);
         }
@@ -550,7 +452,15 @@ export default function JogDial({
         <button
           onClick={() => {
             setMuted(!muted);
-            if (muted) setTimeout(() => playGearMeshLock("confirm"), 50);
+            if (muted) {
+              setTimeout(() => {
+                try {
+                  playGearMeshLock(getAudioContext(), "confirm");
+                } catch {
+                  // Audio fallback
+                }
+              }, 50);
+            }
           }}
           className="p-2 bg-[#F6F6F4]/50 hover:bg-[#F6F6F4]/70 text-neutral-800 rounded-full flex items-center justify-center border border-neutral-300/30 active:scale-95 backdrop-blur-[3px]"
           title={muted ? "Unmute mechanical clicking" : "Mute mechanical clicking"}
