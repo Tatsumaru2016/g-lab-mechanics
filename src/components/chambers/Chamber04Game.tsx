@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Gamepad2, Play, Shuffle, Eye, Layers, Stars, CircleDot, Bomb } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface ChamberProps {
   isActive: boolean;
@@ -12,6 +13,7 @@ interface Tile {
 }
 
 export default function Chamber04Game({ isActive }: ChamberProps) {
+  const { t } = useTranslation();
   const [renderMode, setRenderMode] = useState<"textured" | "wireframe" | "isometric">("isometric");
   const [activeConcept, setActiveConcept] = useState<string>("level_schema");
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -137,18 +139,18 @@ export default function Chamber04Game({ isActive }: ChamberProps) {
   }, [renderMode]);
 
   return (
-    <div className="relative w-full h-full flex flex-col justify-between p-8 md:p-20 overflow-hidden bg-[#F6F6F4]">
+    <div className="relative w-full h-full flex flex-col justify-between p-8 md:p-20 overflow-hidden bg-transparent">
       {/* Grid mapping background design details */}
       <div className="absolute top-0 right-0 p-6 opacity-30 text-right font-mono text-[8px] tracking-widest text-[#111111] pointer-events-none select-none">
-        <div>RENDERER_CORE: ACTIVE</div>
-        <div>SHADER: PROCEDURAL_VOXEL_RGB</div>
-        <div>BUFFER: DEPTH_MATRIX</div>
+        <div>{t("chamber04.rendererCore")}</div>
+        <div>{t("chamber04.shader")}</div>
+        <div>{t("chamber04.buffer")}</div>
       </div>
 
       {/* Top Header */}
       <div className="z-10 flex justify-between items-start font-mono text-[9px] tracking-widest text-[#111111]/60">
-        <div>ENVIRONMENT: L-04 // G.GAME ENGINE</div>
-        <div>WORKSPACE STATUS: SIMULATION ACTIVE</div>
+        <div>{t("chamber04.headerLeft")}</div>
+        <div>{t("chamber04.headerRight")}</div>
       </div>
 
       {/* Main split dashboard stage */}
@@ -156,66 +158,62 @@ export default function Chamber04Game({ isActive }: ChamberProps) {
         
         {/* Left Hand: Typography and Game CTAs */}
         <div className="lg:col-span-5 flex flex-col items-start gap-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white border border-neutral-200 shadow-premium rounded-full text-[10px] text-[#0057FF] font-mono font-bold">
+          <div className="inline-flex items-center gap-2 px-3 py-1 glass-chip shadow-premium rounded-full text-[10px] text-[#0057FF] font-mono font-bold">
             <Gamepad2 className="w-3.5 h-3.5 animate-bounce" />
-            <span>G.GAME ECOSYSTEM // SANDBOX ENVIRONMENT</span>
+            <span>{t("chamber04.badge")}</span>
           </div>
 
           <h2 className="font-display font-light text-5xl tracking-tighter text-[#111111] leading-none">
-            Creating Worlds <br />
-            Worth Exploring<span className="text-[#0057FF]">.</span>
+            {t("chamber04.titleLine1")} <br />
+            {t("chamber04.titleLine2")}
           </h2>
 
           <p className="text-xs text-neutral-500 font-sans font-light leading-relaxed max-w-sm">
-            We are designing a modular game generation container that simplifies micro-physics computation, dynamic light baking, and isometric procedural block meshes. 
+            {t("chamber04.body")}
           </p>
 
           <div className="flex flex-col gap-2.5 w-full mt-2">
             <div className="text-[9px] font-mono tracking-widest text-neutral-400">
-              AVAILABLE CONCEPTS OUTLINES:
+              {t("chamber04.conceptsLabel")}
             </div>
             
             <div className="flex flex-wrap gap-2">
-              {[
-                { id: "level_schema", label: "01. ISOMETRIC TILE EDITOR", detail: "Click tiles to paint isometric cubes." },
-                { id: "particle_engine", label: "02. PHYSICS ENGINE SPARK", detail: "Watch falling gravity simulated voxels." },
-              ].map((concept) => (
+              {(["level_schema", "particle_engine"] as const).map((conceptId) => (
                 <button
-                  key={concept.id}
-                  onClick={() => setActiveConcept(concept.id)}
+                  key={conceptId}
+                  onClick={() => setActiveConcept(conceptId)}
                   className={`px-4 py-3 rounded-lg border text-left font-mono text-[9px] tracking-wider transition-all duration-300 flex-1 min-w-[170px] ${
-                    activeConcept === concept.id
+                    activeConcept === conceptId
                       ? "bg-white text-[#0057FF] border-[#0057FF] shadow-premium"
                       : "bg-white/60 hover:bg-white text-neutral-500 border-neutral-200"
                   }`}
                 >
-                  <div className="font-semibold">{concept.label}</div>
-                  <div className="text-[7.5px] opacity-70 mt-1">{concept.detail}</div>
+                  <div className="font-semibold">{t(`chamber04.concepts.${conceptId}.label`)}</div>
+                  <div className="text-[7.5px] opacity-70 mt-1">{t(`chamber04.concepts.${conceptId}.detail`)}</div>
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Core Link Out CTA button */}
           <a
             href="https://ai.studio/build"
             target="_blank"
             rel="noopener noreferrer"
             className="mt-2 text-white bg-neutral-900 border border-neutral-800 hover:bg-[#0057FF] hover:border-[#0057FF] px-6 py-3.5 rounded-lg font-mono text-xs tracking-wider flex items-center gap-3 shadow-premium transition-all duration-300 group"
           >
-            <span>ENTER G.GAME NETWORK</span>
+            <span>{t("chamber04.enterNetwork")}</span>
             <Play className="w-4 h-4 fill-white text-white group-hover:translate-x-1.5 transition-transform" />
           </a>
         </div>
 
         {/* Right Hand: Fully interactive visual sandbox game simulator */}
-        <div className="lg:col-span-7 flex flex-col bg-white border border-neutral-300/40 shadow-premium p-5 rounded-2xl md:p-6 pointer-events-auto">
+        <div className="lg:col-span-7 flex flex-col glass-panel p-5 rounded-2xl md:p-6 pointer-events-auto">
           
           <div className="flex justify-between items-center border-b border-neutral-100 pb-3 mb-4">
             <div className="flex items-center gap-3">
               <span className="w-2.5 h-2.5 rounded-full bg-[#00C8FF]" />
               <span className="font-mono text-[9px] text-[#111111] tracking-widest font-bold">
-                RENDERVIEW PORTALS
+                {t("chamber04.renderView")}
               </span>
             </div>
 
@@ -273,9 +271,9 @@ export default function Chamber04Game({ isActive }: ChamberProps) {
                       className="px-3 py-1.5 bg-white border border-neutral-200 text-[#0057FF] rounded hover:bg-neutral-100 transition-colors flex items-center gap-1 shadow-premium cursor-pointer"
                     >
                       <Shuffle className="w-3 h-3" />
-                      <span>RE-SEED TERRAIN GRID</span>
+                      <span>{t("chamber04.reseed")}</span>
                     </button>
-                    <span className="hidden md:inline">PAINT MODE: CLICK BLOCKS INSIDE MATRIX</span>
+                    <span className="hidden md:inline">{t("chamber04.paintMode")}</span>
                   </div>
                 </motion.div>
               ) : (
@@ -289,7 +287,7 @@ export default function Chamber04Game({ isActive }: ChamberProps) {
                   {/* Performance Voxel spark loop */}
                   <canvas ref={canvasRef} className="w-full h-full block" />
                   <div className="absolute top-4 left-4 font-mono text-[8.5px] text-neutral-400">
-                    <span>GRAVITY SIMULATED RENDER BUFFERS</span>
+                    <span>{t("chamber04.gravity")}</span>
                   </div>
                 </motion.div>
               )}
@@ -300,8 +298,8 @@ export default function Chamber04Game({ isActive }: ChamberProps) {
 
       {/* Bottom Footer Details */}
       <div className="z-10 flex justify-between items-end font-mono text-[9px] tracking-widest text-[#111111]/40">
-        <div>CORE ENGINE TYPE: ISOMETRIC PROCEDURAL WEBGL BUFFER</div>
-        <div>STATION: L-04 // METAVOXELS</div>
+        <div>{t("chamber04.footerCore")}</div>
+        <div>{t("chamber04.footerStation")}</div>
       </div>
     </div>
   );

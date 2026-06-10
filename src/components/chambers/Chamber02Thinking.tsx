@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { Lightbulb, Layers, FileText, Cpu, Package } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface ChamberProps {
   isActive: boolean;
@@ -41,6 +42,7 @@ class ThoughtParticle {
 }
 
 export default function Chamber02Thinking({ isActive }: ChamberProps) {
+  const { t } = useTranslation();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -255,7 +257,7 @@ export default function Chamber02Thinking({ isActive }: ChamberProps) {
   };
 
   return (
-    <div className="relative w-full h-full flex flex-col justify-between p-8 md:p-20 overflow-hidden bg-[#F6F6F4]">
+    <div className="relative w-full h-full flex flex-col justify-between p-8 md:p-20 overflow-hidden bg-transparent">
       {/* Absolute canvas node container */}
       <div 
         ref={containerRef}
@@ -267,48 +269,50 @@ export default function Chamber02Thinking({ isActive }: ChamberProps) {
 
       {/* Top Header Information */}
       <div className="z-10 flex justify-between items-start font-mono text-[9px] tracking-widest text-[#111111]/60">
-        <div>CHAMBER: THINKING ENGINE</div>
+        <div>{t("chamber02.header")}</div>
         <div className="text-right">
-          <div>PIPELINE STATE: {pipelineState.toUpperCase()}</div>
-          <div>ACTIVE NODES: 70 // FORCE SPARKED: {ideasTriggered}</div>
+          <div>{t("chamber02.pipelineState", { state: pipelineState.toUpperCase() })}</div>
+          <div>{t("chamber02.activeNodes", { count: ideasTriggered })}</div>
         </div>
       </div>
 
       {/* Main Content Stage */}
       <div className="z-10 grid grid-cols-1 lg:grid-cols-12 gap-10 items-center my-auto">
-        <div className="lg:col-span-5 flex flex-col items-start gap-4 bg-white/70 backdrop-blur-md p-6 md:p-8 rounded-2xl border border-neutral-300/30 shadow-premium">
+        <div className="lg:col-span-5 flex flex-col items-start gap-4 glass-panel p-6 md:p-8 rounded-2xl border border-neutral-300/30 shadow-premium">
           <div className="text-[10px] font-mono tracking-widest text-[#0057FF] font-semibold uppercase">
-            IDEA EVOLUTION PIPELINE
+            {t("chamber02.badge")}
           </div>
           
           <h2 className="font-display font-light text-4xl leading-tight text-[#111111] tracking-tight">
-            Crystallizing <br/>
-            Abstract Idea streams.
+            {t("chamber02.titleLine1")} <br/>
+            {t("chamber02.titleLine2")}
           </h2>
 
           <p className="text-xs text-neutral-500 leading-relaxed font-sans font-light">
-            In our lab, thoughts undergo rigorous automated crystallization. Watch the network state adapt in real time as simple floating node lines expand, blueprint parameters lock, and physical products emerge.
+            {t("chamber02.body")}
           </p>
 
           {/* Interactive Pipeline State Controllers */}
           <div className="flex flex-col gap-2 w-full mt-4 border-t border-neutral-200/50 pt-4">
             <div className="text-[9px] font-mono tracking-widest text-neutral-400 mb-1">
-              SELECT ASSEMBLY DEPTH:
+              {t("chamber02.selectDepth")}
             </div>
             
             <div className="grid grid-cols-2 gap-2">
-              {[
-                { id: "particles", label: "01. RAW THOUGHTS", icon: Lightbulb, color: "#111111" },
-                { id: "sketches", label: "02. CAD SKETCHES", icon: Layers, color: "#646464" },
-                { id: "blueprints", label: "03. VECTOR SCHEMAS", icon: FileText, color: "#0057FF" },
-                { id: "products", label: "04. PRODUCT CORE", icon: Package, color: "#00C8FF" },
-              ].map((stage) => {
+              {(
+                [
+                  { id: "particles", icon: Lightbulb },
+                  { id: "sketches", icon: Layers },
+                  { id: "blueprints", icon: FileText },
+                  { id: "products", icon: Package },
+                ] as const
+              ).map((stage) => {
                 const ActiveIcon = stage.icon;
                 const isSelected = pipelineState === stage.id;
                 return (
                   <button
                     key={stage.id}
-                    onClick={() => setPipelineState(stage.id as any)}
+                    onClick={() => setPipelineState(stage.id)}
                     className={`flex items-center gap-2.5 px-3 py-2.5 text-left rounded-lg border font-mono text-[9px] tracking-wider transition-all duration-300 ${
                       isSelected
                         ? "bg-[#111111] text-white border-neutral-900 shadow-premium"
@@ -316,7 +320,7 @@ export default function Chamber02Thinking({ isActive }: ChamberProps) {
                     }`}
                   >
                     <ActiveIcon className={`w-3.5 h-3.5 ${isSelected ? "text-[#00C8FF]" : "text-neutral-400"}`} />
-                    <span>{stage.label}</span>
+                    <span>{t(`chamber02.stages.${stage.id}`)}</span>
                   </button>
                 );
               })}
@@ -326,16 +330,16 @@ export default function Chamber02Thinking({ isActive }: ChamberProps) {
 
         <div className="lg:col-span-7 flex flex-col items-center justify-center relative min-h-[140px] pointer-events-none">
           {/* Animated floating prompt instructions */}
-          <div className="glass-panel text-[10px] font-mono tracking-wider px-4 py-2.5 rounded-lg border border-neutral-200 text-[#0057FF] flex items-center gap-2 bg-white/90 shadow-premium animate-bounce max-w-xs text-center">
-            <span>[CLICK STAGE TO SPARK LOCAL ATTRACTIONS]</span>
+          <div className="glass-panel text-[10px] font-mono tracking-wider px-4 py-2.5 rounded-lg border border-neutral-200/50 text-[#0057FF] flex items-center gap-2 shadow-premium animate-bounce max-w-xs text-center">
+            <span>{t("chamber02.clickHint")}</span>
           </div>
         </div>
       </div>
 
       {/* Bottom Footer Details */}
       <div className="z-10 flex justify-between items-end font-mono text-[9px] tracking-widest text-[#111111]/40">
-        <div>DIETER RAMS GRID MAPPING: 1.0</div>
-        <div>STATION: L-02 // CORE_MINDSET</div>
+        <div>{t("chamber02.footerGrid")}</div>
+        <div>{t("chamber02.footerStation")}</div>
       </div>
     </div>
   );

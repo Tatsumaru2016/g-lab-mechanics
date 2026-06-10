@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Globe, RefreshCw, Send, CheckCircle, Languages, AlertCircle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface ChamberProps {
   isActive: boolean;
@@ -9,46 +10,32 @@ interface ChamberProps {
 const MORPH_DICTIONARY: Record<string, Record<string, string>> = {
   "Hello World": {
     Japanese: "こんにちは世界 (Konnichiwa Sekai)",
-    German: "Hallo Welt",
-    French: "Bonjour le monde",
-    Spanish: "Hola Mundo",
+    English: "Hello World",
     Chinese: "你好，世界 (Nǐ hǎo, shìjiè)",
-    Korean: "안녕, 세상 (Annyeong, sesang)",
-    Italian: "Ciao Mondo",
   },
   "Where ideas become reality.": {
     Japanese: "アイデアが現実になる場所 (Aidea ga genjitsu ni naru basho)",
-    German: "Wo Ideen Wirklichkeit werden.",
-    French: "Là où les idées deviennent réalité.",
-    Spanish: "Donde las ideas se hacen realidad.",
-    Chinese: "点子变成现实的地方 (Diǎnzi biàn chéng xiànshí dì dìfāng)",
-    Korean: "생각이 현실이 되는 곳 (Saenggagi hyeonsiri doeneun got)",
-    Italian: "Dove le idee diventano realtà.",
+    English: "Where ideas become reality.",
+    Chinese: "创意成真的地方 (Chuàngyì chéng zhēn de dìfāng)",
   },
   "The future starts here.": {
     Japanese: "未来はここから始まる (Mirai wa koko kara hajimaru)",
-    German: "Die Zukunft beginnt hier.",
-    French: "L'avenir commence ici.",
-    Spanish: "El futuro comienza aquí.",
+    English: "The future starts here.",
     Chinese: "未来从这里开始 (Wèilái cóng zhèlǐ kāishǐ)",
-    Korean: "미래는 여기서 시작된다 (Miraeneun yeogiseo sijakdoenda)",
-    Italian: "Il futuro inizia qui.",
-  }
+  },
 };
 
 const RANDOM_FLOATING_STRANDS = [
   { text: "Communication", lang: "EN" },
   { text: "コミュニケーション", lang: "JA" },
-  { text: "Kommunikation", lang: "DE" },
-  { text: "Comunicación", lang: "ES" },
   { text: "交流", lang: "ZH" },
-  { text: "소통", lang: "KO" },
   { text: "Communication Beyond Language", lang: "EN" },
   { text: "言語を超えたコミュニケーション", lang: "JA" },
-  { text: "La communication au-delà des langues", lang: "FR" },
+  { text: "超越语言的沟通", lang: "ZH" },
 ];
 
 export default function Chamber05Trans({ isActive }: ChamberProps) {
+  const { t } = useTranslation();
   const [inputText, setInputText] = useState("Where ideas become reality.");
   const [targetLang, setTargetLang] = useState("Japanese");
   const [outputText, setOutputText] = useState("アイデアが現実になる場所");
@@ -80,12 +67,8 @@ export default function Chamber05Trans({ isActive }: ChamberProps) {
         // Generative mock mapping fallback if the phrase isn't the direct match
         const defaultTranslations: Record<string, string> = {
           Japanese: "言語の境界を破る (Gengo no kyōkai o yaburu)",
-          German: "Echtzeit-Sprachsynthese",
-          French: "Traduction instantanée par réseau",
-          Spanish: "Transformación lingüística fluida",
+          English: "Breaking language boundaries",
           Chinese: "打破语言屏障 (Dǎpò yǔyán píngzhàng)",
-          Korean: "언어의 제약을 뛰어넘다 (Eonoeui jeyageul ttwieoneomda)",
-          Italian: "Comunicazione fluida senza parole",
         };
         setOutputText(defaultTranslations[targetLang] || "Synthesizing linguistic response...");
       }
@@ -98,7 +81,7 @@ export default function Chamber05Trans({ isActive }: ChamberProps) {
   }, [targetLang]);
 
   return (
-    <div className="relative w-full h-full flex flex-col justify-between p-8 md:p-20 overflow-hidden bg-[#F6F6F4]">
+    <div className="relative w-full h-full flex flex-col justify-between p-8 md:p-20 overflow-hidden bg-transparent">
       
       {/* Floating Language Strands Layer in Background */}
       <div className="absolute inset-x-0 top-1/4 h-1/2 pointer-events-none opacity-20 flex items-center justify-center">
@@ -115,7 +98,7 @@ export default function Chamber05Trans({ isActive }: ChamberProps) {
               {RANDOM_FLOATING_STRANDS[animatedStrandIndex].text}
             </span>
             <span className="font-mono text-xs tracking-widest text-[#111111]/40">
-              LOCATED DIALECT STRING: [ {RANDOM_FLOATING_STRANDS[animatedStrandIndex].lang} ]
+              {t("chamber05.locatedDialect", { lang: RANDOM_FLOATING_STRANDS[animatedStrandIndex].lang })}
             </span>
           </motion.div>
         </AnimatePresence>
@@ -123,8 +106,8 @@ export default function Chamber05Trans({ isActive }: ChamberProps) {
 
       {/* Top Header */}
       <div className="z-10 flex justify-between items-start font-mono text-[9px] tracking-widest text-[#111111]/60">
-        <div>TRANSLATOR: L-05 // LINGUISTIC CODES</div>
-        <div>MODEL: COGNITIVE TRANS ENGINE V2.4</div>
+        <div>{t("chamber05.headerLeft")}</div>
+        <div>{t("chamber05.headerRight")}</div>
       </div>
 
       {/* Main Translation Portal Workspace */}
@@ -132,44 +115,46 @@ export default function Chamber05Trans({ isActive }: ChamberProps) {
         
         {/* Left Typography Block */}
         <div className="lg:col-span-5 flex flex-col items-start gap-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white border border-neutral-200 shadow-premium rounded-full text-[10px] text-[#00C8FF] font-mono font-bold">
+          <div className="inline-flex items-center gap-2 px-3 py-1 glass-chip shadow-premium rounded-full text-[10px] text-[#00C8FF] font-mono font-bold">
             <Languages className="w-3.5 h-3.5" />
-            <span>G.TRANS // COGNITIVE MORPH ENGINE</span>
+            <span>{t("chamber05.badge")}</span>
           </div>
 
           <h2 className="font-display font-light text-5xl tracking-tighter text-[#111111] leading-none">
-            Communication <br />
-            Beyond Language<span className="text-[#00C8FF]">.</span>
+            {t("chamber05.titleLine1")} <br />
+            {t("chamber05.titleLine2")}<span className="text-[#00C8FF]">.</span>
           </h2>
 
           <p className="text-xs text-neutral-500 font-sans font-light leading-relaxed max-w-sm">
-            We operate an ultra-low-latency pipeline that compiles verbal and symbolic intent into standardized semantic coordinates before rebuilding local dialects on the client interface in real-time.
+            {t("chamber05.body")}
           </p>
 
           <div className="bg-[#111111]/5 border border-[#111111]/10 rounded-lg p-3 flex items-start gap-2 max-w-sm mt-2">
             <AlertCircle className="w-4 h-4 text-[#0057FF] shrink-0 mt-0.5" />
             <div className="font-mono text-[8px] text-neutral-500 tracking-wider">
-              SUGGESTED EXAMPLES: <br />
-              - "Hello World" <br />
-              - "Where ideas become reality." <br />
-              - "The future starts here."
+              {t("chamber05.suggestedExamples")} <br />
+              {(t("chamber05.exampleLines", { returnObjects: true }) as string[]).map((line) => (
+                <span key={line}>
+                  - {line} <br />
+                </span>
+              ))}
             </div>
           </div>
         </div>
 
         {/* Right Interactive Translation Machine Widget */}
-        <div className="lg:col-span-7 flex flex-col bg-white border border-neutral-300/40 shadow-premium p-5 rounded-2xl md:p-6 pointer-events-auto">
+        <div className="lg:col-span-7 flex flex-col glass-panel p-5 rounded-2xl md:p-6 pointer-events-auto">
           <div className="flex items-center justify-between border-b border-neutral-100 pb-3.5 mb-4">
             <div className="flex items-center gap-2">
               <Globe className="w-4 h-4 text-[#0057FF] animate-spin-slow" />
               <span className="font-mono text-[9px] text-neutral-900 tracking-widest font-bold">
-                L-05 STREAM COGNITION CAPTURE
+                {t("chamber05.streamCapture")}
               </span>
             </div>
             
             <div className="flex items-center gap-1.5 font-mono text-[8px] text-neutral-400 bg-neutral-100 px-2 py-1 rounded">
               <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              <span>MUTUAL CORRELATION: 99.8%</span>
+              <span>{t("chamber05.correlation")}</span>
             </div>
           </div>
 
@@ -177,12 +162,12 @@ export default function Chamber05Trans({ isActive }: ChamberProps) {
             {/* Input Segment */}
             <div className="md:col-span-5 flex flex-col gap-1.5 text-left">
               <label className="font-mono text-[8px] text-neutral-400 tracking-widest">
-                SOURCE INPUT TEXT [ ENGLISH ]
+                {t("chamber05.sourceInput")}
               </label>
               <textarea
                 value={inputText}
                 onChange={(e) => setInputText(e.target.value)}
-                placeholder="Type variable phrase here (e.g. 'Hello World')..."
+                placeholder={t("chamber05.sourcePlaceholder")}
                 className="w-full h-24 p-3 bg-neutral-50 border border-neutral-200 hover:border-neutral-300 focus:border-[#0057FF] focus:bg-white text-xs text-neutral-800 rounded-lg outline-none font-sans font-light resize-none transition-all"
               />
             </div>
@@ -193,7 +178,7 @@ export default function Chamber05Trans({ isActive }: ChamberProps) {
                 onClick={handleTranslate}
                 disabled={isTranslating}
                 className="p-2.5 bg-neutral-100 hover:bg-[#0057FF] hover:text-white rounded-full text-neutral-500 border border-neutral-200 transition-all cursor-pointer shadow-premium"
-                title="Force dialect synthesis"
+                title={t("chamber05.forceMorph")}
               >
                 <RefreshCw className={`w-4 h-4 ${isTranslating ? "animate-spin" : ""}`} />
               </button>
@@ -203,7 +188,7 @@ export default function Chamber05Trans({ isActive }: ChamberProps) {
             <div className="md:col-span-5 flex flex-col gap-1.5 text-left">
               <div className="flex justify-between items-center">
                 <label className="font-mono text-[8px] text-neutral-400 tracking-widest">
-                  SYNTHESIZED TERMINATION DIALECT
+                  {t("chamber05.synthesizedDialect")}
                 </label>
                 
                 <select
@@ -211,13 +196,11 @@ export default function Chamber05Trans({ isActive }: ChamberProps) {
                   onChange={(e) => setTargetLang(e.target.value)}
                   className="font-mono text-[9px] bg-neutral-50 text-[#0057FF] border border-neutral-200 rounded px-1.5 py-0.5 outline-none "
                 >
-                  <option value="Japanese">JAPANESE (JA)</option>
-                  <option value="German">GERMAN (DE)</option>
-                  <option value="French">FRENCH (FR)</option>
-                  <option value="Spanish">SPANISH (ES)</option>
-                  <option value="Chinese">CHINESE (ZH)</option>
-                  <option value="Korean">KOREAN (KO)</option>
-                  <option value="Italian">ITALIAN (IT)</option>
+                  {Object.keys(MORPH_DICTIONARY["Hello World"]).map((lang) => (
+                    <option key={lang} value={lang}>
+                      {t(`chamber05.langs.${lang}` as "chamber05.langs.Japanese")}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -233,7 +216,7 @@ export default function Chamber05Trans({ isActive }: ChamberProps) {
                       className="flex flex-col items-center gap-1.5"
                     >
                       <div className="w-4 h-4 rounded-full border-2 border-neutral-300 border-t-[#00C8FF] animate-spin" />
-                      <span className="font-mono text-[8px] tracking-widest text-[#00C8FF]">MORPHING SEGMENTS...</span>
+                      <span className="font-mono text-[8px] tracking-widest text-[#00C8FF]">{t("chamber05.morphing")}</span>
                     </motion.div>
                   ) : (
                     <motion.p
@@ -250,7 +233,7 @@ export default function Chamber05Trans({ isActive }: ChamberProps) {
                 </AnimatePresence>
 
                 <div className="absolute bottom-2 right-2 border border-neutral-700/50 rounded font-mono text-[7px] tracking-wider text-neutral-500 px-1 py-0.5 bg-neutral-800">
-                  <span>OUT: {targetLang.toUpperCase()}</span>
+                  <span>{t("chamber05.outLabel", { lang: targetLang.toUpperCase() })}</span>
                 </div>
               </div>
             </div>
@@ -260,8 +243,8 @@ export default function Chamber05Trans({ isActive }: ChamberProps) {
 
       {/* Bottom Footer */}
       <div className="z-10 flex justify-between items-end font-mono text-[9px] tracking-widest text-[#111111]/40">
-        <div>CORE PIPELINE ENCODING: UTF-8 BASE64 SYMETRICS</div>
-        <div>STATION: L-05 // DIALECT_ENGINE</div>
+        <div>{t("chamber05.footerCore")}</div>
+        <div>{t("chamber05.footerStation")}</div>
       </div>
     </div>
   );

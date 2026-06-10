@@ -1,5 +1,5 @@
 {
-  "name": "G.Lab",
+  "name": "G.Hub",
   "description": "A digital laboratory where ideas evolve into products, tools, worlds, and experiences.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

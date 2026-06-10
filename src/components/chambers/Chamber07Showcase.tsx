@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Sparkles, ArrowRight, X, Info, Layers, Compass } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface ChamberProps {
   isActive: boolean;
@@ -16,41 +17,32 @@ interface Project {
   schematicText: string;
 }
 
-const PROJECTS: Project[] = [
-  {
-    id: "TE-01",
-    name: "Tactile Audio Synth",
-    category: "Pocket Sound Architecture",
-    description: "A pocket-sized discrete physical synthesizer focusing on raw oscillator warmth, spring-loaded tactile push dials, and immediate high-fidelity loop capture.",
-    releaseDate: "Q3 2026",
-    specs: ["Dual multi-wave oscillators", "High-frequency tactile keys", "12-bit PCM loop synth engine"],
-    schematicText: "CORE_ASSEMBLY_MATRIX: VOLTAGE_CONTROLLED_AMPLIFIER",
-  },
-  {
-    id: "GC-09",
-    name: "G.Console Portable",
-    category: "Physical Game Ecosystem",
-    description: "A solid-block milled aluminum gaming handheld with integrated low-latency wireless nodes, custom raster-rendering silicon, and procedural game adapters.",
-    releaseDate: "Q4 2026",
-    specs: ["Milled premium 6061-T6 aluminum slab", "Voxel hardware rasterizer pipeline", "120Hz micro-LED pixel screen"],
-    schematicText: "SHEET_METAL_BENDING: SHARP_RAD_CHASSIS_0.2mm",
-  },
-  {
-    id: "GT-12",
-    name: "OLED Glass Translator",
-    category: "Linguistic Companion",
-    description: "A completely transparent OLED travel device that translates incoming conversations instantly, projecting fluid semantic word webs directly onto the glass panel.",
-    releaseDate: "Q1 2027",
-    specs: ["Bi-directional transparent display", "Omnidirectional spatial speaker matrix", "L-05 cognitive dialect pipeline built-in"],
-    schematicText: "OPTICAL_COATING: AR_REFRACTIVE_INDEX_1.33",
-  },
-];
+const PROJECT_META = [
+  { id: "TE-01", key: "TE01", releaseDate: "Q3 2026" },
+  { id: "GC-09", key: "GC09", releaseDate: "Q4 2026" },
+  { id: "GT-12", key: "GT12", releaseDate: "Q1 2027" },
+] as const;
 
 export default function Chamber07Showcase({ isActive }: ChamberProps) {
+  const { t, i18n } = useTranslation();
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
 
+  const projects: Project[] = useMemo(
+    () =>
+      PROJECT_META.map((meta) => ({
+        id: meta.id,
+        releaseDate: meta.releaseDate,
+        name: t(`chamber07.projects.${meta.key}.name`),
+        category: t(`chamber07.projects.${meta.key}.category`),
+        description: t(`chamber07.projects.${meta.key}.description`),
+        specs: t(`chamber07.projects.${meta.key}.specs`, { returnObjects: true }) as string[],
+        schematicText: t(`chamber07.projects.${meta.key}.schematic`),
+      })),
+    [t, i18n.language]
+  );
+
   return (
-    <div className="relative w-full h-full flex flex-col justify-between p-8 md:p-20 overflow-hidden bg-[#F6F6F4]">
+    <div className="relative w-full h-full flex flex-col justify-between p-8 md:p-20 overflow-hidden bg-transparent">
       
       {/* Background Architectural Grid */}
       <div className="absolute inset-0 pointer-events-none opacity-20 z-0">
@@ -64,8 +56,8 @@ export default function Chamber07Showcase({ isActive }: ChamberProps) {
 
       {/* Top Header */}
       <div className="z-10 flex justify-between items-start font-mono text-[9px] tracking-widest text-[#111111]/60">
-        <div>CATALOGUE: L-07 // PRODUCT SHOWCASE</div>
-        <div>TOTAL PROTO CHASSIS: {PROJECTS.length} UNITS</div>
+        <div>{t("chamber07.headerLeft")}</div>
+        <div>{t("chamber07.headerRight", { count: projects.length })}</div>
       </div>
 
       {/* Main split stage */}
@@ -73,30 +65,30 @@ export default function Chamber07Showcase({ isActive }: ChamberProps) {
         
         {/* Left Typography Block */}
         <div className="lg:col-span-5 flex flex-col items-start gap-4">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-white border border-neutral-200 shadow-premium rounded-full text-[10px] text-[#0057FF] font-mono font-bold">
+          <div className="inline-flex items-center gap-2 px-3 py-1 glass-chip shadow-premium rounded-full text-[10px] text-[#0057FF] font-mono font-bold">
             <Layers className="w-3.5 h-3.5" />
-            <span>HARDWARE RESEARCH ARCHIVE</span>
+            <span>{t("chamber07.badge")}</span>
           </div>
 
           <h2 className="font-display font-light text-5xl tracking-tighter text-[#111111] leading-none">
-            Assembling <br />
-            Physical Form<span className="text-[#0057FF]">.</span>
+            {t("chamber07.titleLine1")} <br />
+            {t("chamber07.titleLine2")}<span className="text-[#0057FF]">.</span>
           </h2>
 
           <p className="text-xs text-neutral-500 font-sans font-light leading-relaxed max-w-sm">
-            We merge software systems into physical, tactile machinery. We believe real-scale hardware should possess micro-tolerances, solid weight, and high-performance tactile interfaces.
+            {t("chamber07.body")}
           </p>
 
           <div className="flex items-center gap-1.5 font-mono text-[9px] text-neutral-400 bg-neutral-100/50 border border-neutral-200 px-3 py-1.5 rounded-lg">
             <Compass className="w-3.5 h-3.5 text-[#0057FF] animate-spin-slow" />
-            <span>CLICK CARDS TO DISCOVER SCHEMATIC SPECIFICATIONS</span>
+            <span>{t("chamber07.clickCards")}</span>
           </div>
         </div>
 
         {/* Right side self-assembling cards list */}
         <div className="lg:col-span-7 flex flex-col md:flex-row gap-5 items-center justify-center relative min-h-[300px] pointer-events-auto">
           <AnimatePresence mode="popLayout">
-            {PROJECTS.map((proj, idx) => (
+            {projects.map((proj, idx) => (
               <motion.button
                 key={proj.id}
                 initial={{ opacity: 0, scale: 0.8, y: 100, rotateY: 20 }}
@@ -169,8 +161,8 @@ export default function Chamber07Showcase({ isActive }: ChamberProps) {
                 <div className="absolute inset-0 bg-grid-white opacity-5 pointer-events-none" />
                 
                 <div className="flex justify-between items-start text-[8px] tracking-wider text-neutral-500 z-10">
-                  <span>SPECIFICATION DRAWING: {selectedProject.id}</span>
-                  <span>CAD_SCALE: 1:1</span>
+                  <span>{t("chamber07.specDrawing", { id: selectedProject.id })}</span>
+                  <span>{t("chamber07.cadScale")}</span>
                 </div>
 
                 <div className="my-10 flex flex-col items-center justify-center relative z-10">
@@ -186,8 +178,8 @@ export default function Chamber07Showcase({ isActive }: ChamberProps) {
                 </div>
 
                 <div className="text-[7.5px] text-neutral-400 tracking-wider flex justify-between z-10">
-                  <span>TOLERANCES: +/- 0.05mm</span>
-                  <span>G.LAB PATENTS APPLIED</span>
+                  <span>{t("chamber07.tolerances")}</span>
+                  <span>{t("chamber07.patents")}</span>
                 </div>
               </div>
 
@@ -218,7 +210,7 @@ export default function Chamber07Showcase({ isActive }: ChamberProps) {
 
                   <div className="border-t border-neutral-100 pt-4 flex flex-col gap-2 font-mono text-[9px]">
                     <span className="text-[8px] text-neutral-400 tracking-widest uppercase">
-                      HARDWARE CORE PARAMETERS:
+                      {t("chamber07.hardwareParams")}
                     </span>
                     {selectedProject.specs.map((spec, i) => (
                       <div key={i} className="flex items-center gap-2 bg-[#F6F6F4] px-2.5 py-1.5 rounded border border-neutral-200">
@@ -230,12 +222,14 @@ export default function Chamber07Showcase({ isActive }: ChamberProps) {
                 </div>
 
                 <div className="mt-8 border-t border-neutral-100 pt-4 flex justify-between items-center text-xs">
-                  <span className="font-mono text-[9px] text-neutral-400">STATUS: IN_DEVELOPMENT [ {selectedProject.releaseDate} ]</span>
+                  <span className="font-mono text-[9px] text-neutral-400">
+                    {t("chamber07.statusDev", { date: selectedProject.releaseDate })}
+                  </span>
                   <button
                     onClick={() => setSelectedProject(null)}
                     className="px-4 py-2 bg-[#111111] hover:bg-[#0057FF] text-white rounded-lg font-mono text-[9px] tracking-wider transition-colors cursor-pointer"
                   >
-                    CLOSE GATEWAY SPEC
+                    {t("chamber07.closeSpec")}
                   </button>
                 </div>
               </div>
@@ -246,8 +240,8 @@ export default function Chamber07Showcase({ isActive }: ChamberProps) {
 
       {/* Bottom Footer Details */}
       <div className="z-10 flex justify-between items-end font-mono text-[9px] tracking-widest text-[#111111]/40">
-        <div>PRODUCTION TOLERANCE COMPILATION: OFF-WHITE GLOW</div>
-        <div>STATION: L-07 // PRODUCT_MATRIX</div>
+        <div>{t("chamber07.footerProd")}</div>
+        <div>{t("chamber07.footerStation")}</div>
       </div>
     </div>
   );

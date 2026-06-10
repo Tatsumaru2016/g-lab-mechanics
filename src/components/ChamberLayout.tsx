@@ -47,7 +47,7 @@ export default function ChamberLayout({
   );
 
   return (
-    <div className="relative w-full h-full bg-[#F6F6F4] overflow-hidden">
+    <div className="relative w-full h-full ghub-ambient overflow-hidden">
       <div className="absolute inset-0 z-10 overflow-hidden">
         {scenes.map(({ chamber, meta }) => {
           const index = chamber.index;

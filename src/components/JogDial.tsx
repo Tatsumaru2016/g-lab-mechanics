@@ -3,7 +3,8 @@ import { motion, AnimatePresence, type MotionValue } from "motion/react";
 import { CHAMBERS } from "../types";
 import { CHAMBER_STEP_DEG, SCOUTER_AIM_DEG } from "../sceneOrbit";
 import { playGearMeshLock, playRatchetTick, type RatchetKind } from "../audio/mechanicalDial";
-import { Volume2, VolumeX } from "lucide-react";
+import { chamberI18nKey } from "../i18n/chamberKey";
+import { useTranslation } from "react-i18next";
 
 interface JogDialProps {
   currentChamber: number;
@@ -12,6 +13,8 @@ interface JogDialProps {
   onChamberChange: (index: number) => void;
   /** Fires when dial settles on a detent */
   onSceneLocked?: () => void;
+  /** Global SFX gate — when false, no dial sounds play */
+  soundEnabled?: boolean;
 }
 
 const DIAL_SIZE = 380;
@@ -50,14 +53,15 @@ const DIAL_INK = {
 export const DIAL_CENTER_X = -52;
 const DIAL_MOUNT_LEFT = DIAL_CENTER_X - DIAL_SIZE / 2;
 const DIAL_MOUNT_TOP = `calc(50% - ${DIAL_SIZE / 2}px)`;
-/** Match dial shell scale; scouter frame = tick band at 3 o'clock */
-const DIAL_RING_SCALE = 0.9;
-const RING_OUTER_PX = G.scaleOuter * DIAL_RING_SCALE;
-/** Fixed scouter channel: dial hub (left) → past outer tick ring */
-const SCOUTER_SLOT_EXTEND_PX = 24;
+/** Match dial shell scale; scouter sits inside white outer bezel */
+const DIAL_SHELL_SCALE = 0.9;
+const BEZEL_OUTER_PX = G.bezelOuter * DIAL_SHELL_SCALE;
+/** Keep blue frame inside the thick white outer ring, nudged slightly left */
+const SCOUTER_INSET_FROM_WHITE_PX = 10;
+const SCOUTER_NUDGE_LEFT_PX = -5;
 const SCOUTER_SLOT = {
   left: DIAL_CENTER_X,
-  width: RING_OUTER_PX + SCOUTER_SLOT_EXTEND_PX,
+  width: BEZEL_OUTER_PX - SCOUTER_INSET_FROM_WHITE_PX - SCOUTER_NUDGE_LEFT_PX,
   height: 52,
 } as const;
 const SLOT_LEFT = SCOUTER_SLOT.left;
@@ -65,8 +69,7 @@ const SLOT_WIDTH = SCOUTER_SLOT.width;
 const SLOT_HEIGHT = SCOUTER_SLOT.height;
 const SLOT_TOP = `calc(50% - ${SLOT_HEIGHT / 2}px)`;
 /** Right edge of dial + scouter channel (px from viewport left) */
-const DIAL_OCCLUSION_RIGHT_PX =
-  DIAL_CENTER_X + RING_OUTER_PX + SCOUTER_SLOT_EXTEND_PX;
+const DIAL_OCCLUSION_RIGHT_PX = DIAL_CENTER_X + SCOUTER_SLOT.width;
 /** Main scene content starts here — dial/scouter cleared with a modest gap */
 export const DIAL_SCENE_CLEARANCE_PX = Math.ceil(DIAL_OCCLUSION_RIGHT_PX + 32);
 
@@ -76,10 +79,7 @@ const SCOUTER = {
   borderStrong: "rgba(0, 61, 184, 0.72)",
   fill: "rgba(0, 61, 184, 0.1)",
   fillStrong: "rgba(0, 61, 184, 0.22)",
-  beam: "rgba(0, 61, 184, 0.5)",
   glow: "rgba(0, 61, 184, 0.35)",
-  scanLine: "rgba(0, 61, 184, 0.95)",
-  scanFlash: "rgba(0, 61, 184, 0.2)",
 } as const;
 
 function polar(angleDeg: number, radius: number) {
@@ -160,11 +160,12 @@ export default function JogDial({
   dialRotationMV,
   onChamberChange,
   onSceneLocked,
+  soundEnabled = true,
 }: JogDialProps) {
   const dialRef = useRef<HTMLDivElement>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
+  const { t } = useTranslation();
 
-  const [muted, setMuted] = useState(false);
   const [rotation, setRotation] = useState(detentAngle(currentChamber));
   const [isDragging, setIsDragging] = useState(false);
   const [detentKick, setDetentKick] = useState(false);
@@ -195,7 +196,7 @@ export default function JogDial({
   };
 
   const triggerSnapFeedback = (withScenePulse: boolean) => {
-    if (!muted) {
+    if (soundEnabled) {
       try {
         playGearMeshLock(getAudioContext(), withScenePulse ? "full" : "confirm");
       } catch {
@@ -309,7 +310,7 @@ export default function JogDial({
 
     window.addEventListener("wheel", handleWheel, { passive: true });
     return () => window.removeEventListener("wheel", handleWheel);
-  }, [currentChamber, onChamberChange, muted]);
+  }, [currentChamber, onChamberChange, soundEnabled]);
 
   const getMouseAngle = (e: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent) => {
     if (!dialRef.current) return 0;
@@ -332,6 +333,10 @@ export default function JogDial({
   };
 
   const handleStart = (e: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
+    if ("button" in e && e.button !== 0) {
+      return;
+    }
+
     isDraggingRef.current = true;
     setIsDragging(true);
     dragStartChamberRef.current = currentChamberRef.current;
@@ -368,7 +373,7 @@ export default function JogDial({
       const tickSlot = Math.round(-physical / TICK_STEP);
       if (tickSlot !== lastTickSlotRef.current) {
         lastTickSlotRef.current = tickSlot;
-        if (!muted) {
+        if (soundEnabled) {
           try {
             playRatchetTick(getAudioContext(), ratchetKindForTickSlot(tickSlot));
           } catch {
@@ -391,6 +396,7 @@ export default function JogDial({
     const handleEnd = () => {
       isDraggingRef.current = false;
       setIsDragging(false);
+
       const physical = applyDetentWell(rotationRef.current);
       const targetIndex = detentIndex(physical);
       const sceneChanged = targetIndex !== dragStartChamberRef.current;
@@ -412,9 +418,8 @@ export default function JogDial({
       window.removeEventListener("touchmove", handleMove);
       window.removeEventListener("touchend", handleEnd);
     };
-  }, [isDragging, onChamberChange, muted, dialRotationMV]);
+  }, [isDragging, onChamberChange, soundEnabled, dialRotationMV]);
 
-  const dialRevealed = isDragging || detentKick;
   const dialActiveIndex = Math.max(
     0,
     Math.min(CHAMBERS.length - 1, Math.round(-rotation / STEP_DEGREES))
@@ -442,37 +447,6 @@ export default function JogDial({
 
   return (
     <div className="absolute inset-0 z-20 group/dial select-none pointer-events-none overflow-visible">
-      <div
-        className={`absolute top-5 left-2 z-[60] pointer-events-auto transition-all duration-300 ${
-          dialRevealed
-            ? "opacity-100 translate-x-0"
-            : "opacity-0 -translate-x-1.5 group-hover/dial:opacity-100 group-hover/dial:translate-x-0"
-        }`}
-      >
-        <button
-          onClick={() => {
-            setMuted(!muted);
-            if (muted) {
-              setTimeout(() => {
-                try {
-                  playGearMeshLock(getAudioContext(), "confirm");
-                } catch {
-                  // Audio fallback
-                }
-              }, 50);
-            }
-          }}
-          className="p-2 bg-[#F6F6F4]/50 hover:bg-[#F6F6F4]/70 text-neutral-800 rounded-full flex items-center justify-center border border-neutral-300/30 active:scale-95 backdrop-blur-[3px]"
-          title={muted ? "Unmute mechanical clicking" : "Mute mechanical clicking"}
-        >
-          {muted ? (
-            <VolumeX className="w-3.5 h-3.5 text-neutral-400" />
-          ) : (
-            <Volume2 className="w-3.5 h-3.5 text-neutral-600" />
-          )}
-        </button>
-      </div>
-
       {/* Dial + fixed slot share hub at (DIAL_CENTER_X, 50%) */}
       <div className="absolute inset-0 overflow-visible pointer-events-none">
         {/* Rotating dial assembly */}
@@ -516,20 +490,28 @@ export default function JogDial({
           >
             <svg className="w-full h-full absolute overflow-visible" viewBox="0 0 360 360">
               <defs>
-                <linearGradient id="dialBezelMetal" x1="15%" y1="10%" x2="85%" y2="90%">
-                  <stop offset="0%" stopColor="#FAFBFD" />
-                  <stop offset="38%" stopColor="#D8DEE8" />
-                  <stop offset="62%" stopColor="#A0A8B6" />
-                  <stop offset="100%" stopColor="#E2E7EE" />
-                </linearGradient>
-                <radialGradient id="dialScaleFace" cx="36%" cy="30%" r="75%">
+                <linearGradient id="dialBezelMetal" x1="12%" y1="8%" x2="88%" y2="92%">
                   <stop offset="0%" stopColor="#FFFFFF" />
-                  <stop offset="55%" stopColor="#FAFBFC" />
-                  <stop offset="100%" stopColor="#ECEFF4" />
+                  <stop offset="22%" stopColor="#E8EDF4" />
+                  <stop offset="48%" stopColor="#98A2B0" />
+                  <stop offset="72%" stopColor="#D4DAE4" />
+                  <stop offset="100%" stopColor="#F0F3F8" />
+                </linearGradient>
+                <radialGradient id="dialScaleFace" cx="34%" cy="28%" r="78%">
+                  <stop offset="0%" stopColor="#FFFFFF" />
+                  <stop offset="42%" stopColor="#F6F8FB" />
+                  <stop offset="78%" stopColor="#D8DEE8" />
+                  <stop offset="100%" stopColor="#B8C0CC" />
                 </radialGradient>
-                <linearGradient id="dialScaleSheen" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="rgba(255,255,255,0.45)" />
-                  <stop offset="50%" stopColor="rgba(255,255,255,0.08)" />
+                <linearGradient id="dialScaleSheen" x1="8%" y1="6%" x2="72%" y2="78%">
+                  <stop offset="0%" stopColor="rgba(255,255,255,0.72)" />
+                  <stop offset="38%" stopColor="rgba(255,255,255,0.18)" />
+                  <stop offset="100%" stopColor="rgba(255,255,255,0)" />
+                </linearGradient>
+                <linearGradient id="dialSpecularArc" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="rgba(255,255,255,0)" />
+                  <stop offset="42%" stopColor="rgba(255,255,255,0.55)" />
+                  <stop offset="58%" stopColor="rgba(255,255,255,0.35)" />
                   <stop offset="100%" stopColor="rgba(255,255,255,0)" />
                 </linearGradient>
                 <linearGradient id="dialWell" x1="50%" y1="0%" x2="50%" y2="100%">
@@ -537,17 +519,20 @@ export default function JogDial({
                   <stop offset="100%" stopColor="#E2E7EE" />
                 </linearGradient>
                 <linearGradient id="dialGripMetal" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#C8CED8" />
-                  <stop offset="50%" stopColor="#9AA4B0" />
-                  <stop offset="100%" stopColor="#B8C0CC" />
+                  <stop offset="0%" stopColor="#E2E7EE" />
+                  <stop offset="35%" stopColor="#8E98A6" />
+                  <stop offset="65%" stopColor="#B0B8C4" />
+                  <stop offset="100%" stopColor="#D8DEE8" />
                 </linearGradient>
-                <radialGradient id="dialKnobFace" cx="38%" cy="32%" r="62%">
-                  <stop offset="0%" stopColor="#F8FAFC" />
-                  <stop offset="45%" stopColor="#D0D6E0" />
-                  <stop offset="100%" stopColor="#8892A0" />
+                <radialGradient id="dialKnobFace" cx="36%" cy="30%" r="64%">
+                  <stop offset="0%" stopColor="#FFFFFF" />
+                  <stop offset="38%" stopColor="#D8DEE8" />
+                  <stop offset="72%" stopColor="#98A2B0" />
+                  <stop offset="100%" stopColor="#6E7888" />
                 </radialGradient>
-                <radialGradient id="dialKnobHotspot" cx="34%" cy="28%" r="22%">
-                  <stop offset="0%" stopColor="rgba(255,255,255,0.9)" />
+                <radialGradient id="dialKnobHotspot" cx="32%" cy="26%" r="24%">
+                  <stop offset="0%" stopColor="rgba(255,255,255,0.95)" />
+                  <stop offset="55%" stopColor="rgba(255,255,255,0.15)" />
                   <stop offset="100%" stopColor="rgba(255,255,255,0)" />
                 </radialGradient>
                 <filter id="dialSoftShadow" x="-20%" y="-20%" width="140%" height="140%">
@@ -573,8 +558,16 @@ export default function JogDial({
                   cy={G.cy}
                   r={G.bezelOuter}
                   fill="none"
-                  stroke="rgba(255,255,255,0.85)"
-                  strokeWidth="0.6"
+                  stroke="rgba(255,255,255,0.92)"
+                  strokeWidth="0.75"
+                />
+                <circle
+                  cx={G.cx}
+                  cy={G.cy}
+                  r={G.bezelInner + 1}
+                  fill="none"
+                  stroke="rgba(60,68,80,0.12)"
+                  strokeWidth="0.45"
                 />
 
                 {/* Scale face */}
@@ -585,7 +578,17 @@ export default function JogDial({
                   cy={G.cy}
                   r={G.scaleOuter}
                   fill="url(#dialScaleSheen)"
-                  opacity="0.35"
+                  opacity="0.58"
+                />
+                <ellipse
+                  cx={G.cx - 28}
+                  cy={G.cy - 42}
+                  rx={72}
+                  ry={28}
+                  fill="url(#dialSpecularArc)"
+                  opacity="0.42"
+                  transform={`rotate(-18 ${G.cx} ${G.cy})`}
+                  pointerEvents="none"
                 />
                 <circle
                   cx={G.cx}
@@ -729,94 +732,32 @@ export default function JogDial({
           }}
         >
           <div
-            className="relative w-full h-full overflow-hidden rounded-r-md transition-[box-shadow,border-color] duration-200 border-y border-r backdrop-blur-[3px]"
+            className="relative w-full h-full overflow-hidden rounded-r-md transition-[box-shadow,border-color,background] duration-200 border-y border-r dial-scouter-metal mr-px"
             style={{
               borderColor: syncEffect
                 ? SCOUTER.borderStrong
                 : isSceneSynced
                   ? SCOUTER.border
-                  : "rgba(0, 61, 184, 0.32)",
+                  : "rgba(108, 118, 132, 0.42)",
               boxShadow: syncEffect
-                ? `inset 0 0 0 2px ${SCOUTER.borderStrong}, 0 0 20px ${SCOUTER.glow}`
+                ? `inset 0 0 0 2px ${SCOUTER.borderStrong}, inset 0 1px 0 rgba(255,255,255,0.9), 0 0 18px ${SCOUTER.glow}`
                 : isSceneSynced
-                  ? `inset 0 0 0 1.5px ${SCOUTER.border}, 0 0 10px rgba(0, 61, 184, 0.1)`
-                  : `inset 0 1px 6px rgba(0, 61, 184, 0.08)`,
+                  ? `inset 0 0 0 1.5px ${SCOUTER.border}, inset 0 1px 0 rgba(255,255,255,0.85), 0 0 8px rgba(0, 61, 184, 0.08)`
+                  : undefined,
               background: syncEffect
-                ? `linear-gradient(90deg, ${SCOUTER.fillStrong} 0%, rgba(0, 61, 184, 0.1) 100%)`
-                : `linear-gradient(90deg, ${SCOUTER.fill} 0%, rgba(255,255,255,0.2) 100%)`,
+                ? `linear-gradient(90deg, #e4e9f2 0%, ${SCOUTER.fillStrong} 52%, rgba(0, 61, 184, 0.12) 100%)`
+                : isSceneSynced
+                  ? `linear-gradient(90deg, #eceff5 0%, rgba(0, 61, 184, 0.14) 100%)`
+                  : undefined,
             }}
           >
-            <AnimatePresence>
-              {syncEffect && (
-                <>
-                  {/* Scan light — hub → tick ring */}
-                  <motion.div
-                    key="scan-glow"
-                    initial={{ left: "-12%", opacity: 0, width: "28%" }}
-                    animate={{
-                      left: ["-12%", "38%", "88%"],
-                      opacity: [0, 0.95, 0.7, 0],
-                      width: ["28%", "22%", "14%", "8%"],
-                    }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.44, ease: [0.22, 1, 0.36, 1] }}
-                    className="absolute inset-y-0 pointer-events-none"
-                    style={{
-                      background: `linear-gradient(90deg, transparent 0%, rgba(0, 61, 184, 0.12) 30%, ${SCOUTER.beam} 50%, rgba(0, 61, 184, 0.12) 70%, transparent 100%)`,
-                    }}
-                  />
-                  <motion.div
-                    key="scan-core"
-                    initial={{ left: "-4%", opacity: 0, width: "10%" }}
-                    animate={{
-                      left: ["-4%", "42%", "94%"],
-                      opacity: [0, 1, 0.85, 0],
-                      width: ["10%", "8%", "5%", "3%"],
-                    }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.44, ease: [0.22, 1, 0.36, 1] }}
-                    className="absolute inset-y-[2px] pointer-events-none rounded-sm"
-                    style={{
-                      background: `linear-gradient(90deg, transparent, rgba(0, 61, 184, 0.55) 48%, ${SCOUTER.scanLine} 50%, rgba(0, 61, 184, 0.55) 52%, transparent)`,
-                      boxShadow: `0 0 14px ${SCOUTER.glow}, 0 0 28px rgba(0, 61, 184, 0.28)`,
-                    }}
-                  />
-                  <motion.div
-                    key="scan-line"
-                    initial={{ left: "0%", opacity: 0, scaleY: 0.6 }}
-                    animate={{
-                      left: ["0%", "46%", "98%"],
-                      opacity: [0, 1, 0.9, 0],
-                      scaleY: [0.6, 1, 1, 0.85],
-                    }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.44, ease: [0.22, 1, 0.36, 1] }}
-                    className="absolute inset-y-1 w-[2px] origin-center pointer-events-none"
-                    style={{
-                      backgroundColor: SCOUTER.ink,
-                      boxShadow: `0 0 10px ${SCOUTER.glow}, 0 0 20px rgba(0, 61, 184, 0.55)`,
-                    }}
-                  />
-                  <motion.div
-                    key="scan-flash"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: [0, 0, 0.55, 0] }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.44, ease: "easeOut", times: [0, 0.72, 0.86, 1] }}
-                    className="absolute inset-0 rounded-r-lg pointer-events-none"
-                    style={{ backgroundColor: SCOUTER.scanFlash }}
-                  />
-                </>
-              )}
-            </AnimatePresence>
-
-            {/* Right edge = outer tick ring */}
+            {/* Right edge — inside white outer bezel */}
             <div
-              className="absolute inset-y-2 right-0 w-px pointer-events-none"
+              className="absolute inset-y-3 right-1 w-px pointer-events-none"
               style={{ backgroundColor: SCOUTER.border }}
             />
             <div
-              className="absolute inset-y-2 left-4 right-2 border-y border-dashed pointer-events-none"
+              className="absolute inset-y-3 left-4 right-3 border-y border-dashed pointer-events-none"
               style={{
                 borderColor: isSceneSynced
                   ? "rgba(0, 61, 184, 0.3)"
@@ -831,7 +772,7 @@ export default function JogDial({
             />
 
             {/* Scene name + number on tick ring */}
-            <div className="absolute inset-y-0 left-8 right-2 z-10 flex items-center justify-end gap-2.5 pointer-events-none">
+            <div className="absolute inset-y-0 left-7 right-3 z-10 flex items-center justify-end gap-2.5 pointer-events-none">
               <motion.div
                 key={`slot-${dialActiveIndex}`}
                 initial={syncEffect ? { scale: 0.7, opacity: 0.2 } : false}
@@ -860,7 +801,7 @@ export default function JogDial({
                     fontWeight: syncEffect || isSceneSynced ? 700 : 600,
                   }}
                 >
-                  {CHAMBERS[dialActiveIndex].name}
+                  {t(`chambers.${chamberI18nKey(CHAMBERS[dialActiveIndex].id)}.name`)}
                 </span>
                 <span
                   className="font-mono tabular-nums leading-none text-[13px]"
@@ -889,31 +830,13 @@ export default function JogDial({
                       className="absolute -top-2.5 right-0 text-[5px] font-bold tracking-widest whitespace-nowrap"
                       style={{ color: SCOUTER.ink }}
                     >
-                      LOCK
+                      {t("dial.lock")}
                     </motion.span>
                   )}
                 </AnimatePresence>
               </motion.div>
             </div>
           </div>
-
-          {/* Scan continues into scene after channel lock */}
-          <AnimatePresence>
-            {syncEffect && (
-              <motion.div
-                key="scan-sweep-scene"
-                initial={{ scaleX: 0, opacity: 0.75 }}
-                animate={{ scaleX: 1, opacity: 0 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.5, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
-                className="absolute left-full top-1/2 -translate-y-1/2 h-[46px] w-[min(36vw,220px)] origin-left pointer-events-none rounded-r-md"
-                style={{
-                  background: `linear-gradient(90deg, rgba(0, 61, 184, 0.32) 0%, rgba(0, 61, 184, 0.12) 45%, transparent 100%)`,
-                  boxShadow: `0 0 22px rgba(0, 61, 184, 0.12)`,
-                }}
-              />
-            )}
-          </AnimatePresence>
         </div>
       </div>
     </div>
