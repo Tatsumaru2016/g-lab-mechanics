@@ -1,25 +1,30 @@
 import { useCallback, useState } from "react";
 
-const STORAGE_KEY = "ghub-sfx-enabled";
-const LEGACY_STORAGE_KEY = "glab-sfx-enabled";
+/** v2: reset stale OFF values; default is always ON for new visitors */
+const STORAGE_KEY = "ghub-sfx-enabled-v2";
+const LEGACY_KEYS = ["ghub-sfx-enabled", "glab-sfx-enabled"] as const;
 export const DEFAULT_SOUND_ENABLED = true;
 
 function readStoredSoundEnabled(): boolean {
   try {
-    let stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === null) {
-      const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
-      if (legacy !== null) {
-        stored = legacy;
-        localStorage.setItem(STORAGE_KEY, legacy);
-        localStorage.removeItem(LEGACY_STORAGE_KEY);
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored !== null) {
+      return stored === "true";
+    }
+
+    // Only inherit legacy preference when it was explicitly ON
+    for (const legacyKey of LEGACY_KEYS) {
+      const legacy = localStorage.getItem(legacyKey);
+      if (legacy === "true") {
+        localStorage.setItem(STORAGE_KEY, "true");
+        for (const key of LEGACY_KEYS) localStorage.removeItem(key);
+        return true;
       }
     }
-    if (stored === null) {
-      localStorage.setItem(STORAGE_KEY, String(DEFAULT_SOUND_ENABLED));
-      return DEFAULT_SOUND_ENABLED;
-    }
-    return stored === "true";
+
+    for (const key of LEGACY_KEYS) localStorage.removeItem(key);
+    localStorage.setItem(STORAGE_KEY, "true");
+    return DEFAULT_SOUND_ENABLED;
   } catch {
     return DEFAULT_SOUND_ENABLED;
   }
