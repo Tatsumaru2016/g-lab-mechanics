@@ -1,16 +1,20 @@
 /**
  * Jog-dial SFX from sample: public/audio/jog.wav (se_kinko_kagi02.wav)
+ *
+ * Browser autoplay policy: audio output requires a user gesture (click / key / touch).
+ * Sound UI can show ON before that first gesture unlocks the output path.
  */
 
 export type RatchetKind = "minor" | "medium" | "major";
 
 const JOG_SAMPLE_URL = `${import.meta.env.BASE_URL}audio/jog.wav`;
-/** Boost perceived loudness — short jog.wav slices read quiet on laptop speakers / Pages. */
 const SFX_MASTER_GAIN = 1.75;
 
 let sharedContext: AudioContext | null = null;
+let cachedArrayBuffer: ArrayBuffer | null = null;
 let cachedBuffer: AudioBuffer | null = null;
-let loadPromise: Promise<AudioBuffer> | null = null;
+let fetchPromise: Promise<ArrayBuffer> | null = null;
+let decodePromise: Promise<AudioBuffer> | null = null;
 let readyPromise: Promise<AudioContext> | null = null;
 let sfxActivated = false;
 let activationInFlight: Promise<AudioContext> | null = null;
@@ -24,6 +28,7 @@ function getOrCreateContext(): AudioContext {
       if (sharedContext?.state === "suspended") {
         sfxActivated = false;
         readyPromise = null;
+        decodePromise = null;
       }
     });
   }
@@ -38,7 +43,33 @@ function getFallbackClip(): HTMLAudioElement {
   return fallbackClip;
 }
 
-/** Prime HTMLAudioElement output path (helps on Windows when WebAudio stays suspended). */
+function fetchJogArrayBuffer(): Promise<ArrayBuffer> {
+  if (cachedArrayBuffer) return Promise.resolve(cachedArrayBuffer);
+  if (!fetchPromise) {
+    fetchPromise = fetch(JOG_SAMPLE_URL)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error(`Failed to load jog.wav (${response.status})`);
+        }
+        return response.arrayBuffer();
+      })
+      .then((data) => {
+        cachedArrayBuffer = data;
+        return data;
+      })
+      .catch((err) => {
+        fetchPromise = null;
+        throw err;
+      });
+  }
+  return fetchPromise;
+}
+
+/** Fetch sample early — safe before any user gesture. */
+export function prefetchJogSample(): void {
+  void fetchJogArrayBuffer().catch(() => {});
+}
+
 function primeFallbackAudioSync(): void {
   try {
     const clip = getFallbackClip();
@@ -50,9 +81,7 @@ function primeFallbackAudioSync(): void {
           clip.pause();
           clip.currentTime = 0;
         })
-        .catch(() => {
-          // Needs a user gesture; ignore until then.
-        });
+        .catch(() => {});
     }
   } catch {
     // Audio unavailable
@@ -67,9 +96,7 @@ function playFallback(opts: { volume?: number; playbackRate?: number; duration?:
     clip.currentTime = 0;
     void clip.play().catch(() => {});
     if (opts.duration) {
-      window.setTimeout(() => {
-        clip.pause();
-      }, opts.duration * 1000);
+      window.setTimeout(() => clip.pause(), opts.duration * 1000);
     }
   } catch {
     // Audio unavailable
@@ -78,24 +105,21 @@ function playFallback(opts: { volume?: number; playbackRate?: number; duration?:
 
 async function loadJogBuffer(ctx: AudioContext): Promise<AudioBuffer> {
   if (cachedBuffer) return cachedBuffer;
-  if (!loadPromise) {
-    loadPromise = fetch(JOG_SAMPLE_URL)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`Failed to load jog.wav (${response.status})`);
-        }
-        return response.arrayBuffer();
-      })
-      .then((data) => ctx.decodeAudioData(data))
+  if (!decodePromise) {
+    decodePromise = fetchJogArrayBuffer()
+      .then((data) => ctx.decodeAudioData(data.slice(0)))
       .then((buffer) => {
         cachedBuffer = buffer;
         return buffer;
+      })
+      .catch((err) => {
+        decodePromise = null;
+        throw err;
       });
   }
-  return loadPromise;
+  return decodePromise;
 }
 
-/** Call synchronously inside pointerdown / click / keydown handlers. */
 export function unlockJogAudioSync(): AudioContext | null {
   try {
     const ctx = getOrCreateContext();
@@ -113,7 +137,6 @@ export function unlockJogAudioSync(): AudioContext | null {
   }
 }
 
-/** Resume AudioContext and preload jog.wav. */
 export function ensureJogAudioReady(): Promise<AudioContext> {
   unlockJogAudioSync();
   const ctx = getOrCreateContext();
@@ -143,10 +166,7 @@ function isAudioRunning(): boolean {
   return sharedContext?.state === "running";
 }
 
-/**
- * Same path as toggling sound OFF → ON:
- * unlock, preload sample, play confirm lock click.
- */
+/** Full activation — used when user toggles sound OFF → ON (plays confirm click). */
 export function activateJogAudio(options: { playConfirm?: boolean } = {}): Promise<AudioContext> {
   const playConfirm = options.playConfirm ?? true;
   unlockJogAudioSync();
@@ -179,14 +199,14 @@ export function activateJogAudio(options: { playConfirm?: boolean } = {}): Promi
 }
 
 /**
- * Call on every user gesture while sound is ON.
- * Re-activates when the context is suspended (common on Windows until output wakes).
+ * Unlock audio on user gesture. Silent on first site interaction;
+ * confirm click only when toggling OFF → ON.
  */
 export function primeJogAudioFromGesture(): void {
   unlockJogAudioSync();
   if (!sfxActivated || !isAudioRunning()) {
     if (!activationInFlight) {
-      void activateJogAudio({ playConfirm: !sfxActivated });
+      void activateJogAudio({ playConfirm: false });
     }
     return;
   }
@@ -197,7 +217,6 @@ export function isJogAudioActivated(): boolean {
   return sfxActivated && isAudioRunning();
 }
 
-/** Focus / visibility / device changes can wake the OS audio path — retry resume. */
 export function bindJogAudioWatchers(): () => void {
   if (typeof window === "undefined") {
     return () => {};
@@ -241,7 +260,6 @@ async function playSample(
   }
 
   const buffer = await loadJogBuffer(ctx);
-
   const src = ctx.createBufferSource();
   src.buffer = buffer;
   src.playbackRate.value = opts.playbackRate ?? 1;
@@ -273,7 +291,6 @@ function runSample(
     });
 }
 
-/** Every 6° ratchet step while dragging */
 export function playRatchetTick(kind: RatchetKind) {
   if (kind === "minor") {
     runSample({ gain: 0.48, playbackRate: 1.08, duration: 0.07 });
@@ -286,7 +303,6 @@ export function playRatchetTick(kind: RatchetKind) {
   runSample({ gain: 0.82, playbackRate: 0.94, duration: 0.11 });
 }
 
-/** Final detent lock when dial settles on a chamber */
 export function playGearMeshLock(variant: "full" | "confirm" = "full") {
   const amp = variant === "full" ? 1 : 0.72;
   runSample({

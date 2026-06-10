@@ -5,7 +5,7 @@ import ChamberLayout from "./components/ChamberLayout";
 import SoundToggle from "./components/SoundToggle";
 import LanguageSwitcher from "./components/LanguageSwitcher";
 import { useSoundEnabled } from "./hooks/useSoundEnabled";
-import { activateJogAudio, primeJogAudioFromGesture, bindJogAudioWatchers } from "./audio/mechanicalDial";
+import { activateJogAudio, primeJogAudioFromGesture, bindJogAudioWatchers, prefetchJogSample } from "./audio/mechanicalDial";
 import { CHAMBERS } from "./types";
 
 // Import individual Chambers
@@ -37,17 +37,25 @@ export default function App() {
   useEffect(() => {
     if (!soundEnabled) return;
 
+    prefetchJogSample();
+
     const onGesture = () => {
       primeJogAudioFromGesture();
     };
 
     window.addEventListener("pointerdown", onGesture, { capture: true, passive: true });
+    window.addEventListener("click", onGesture, { capture: true, passive: true });
+    window.addEventListener("touchstart", onGesture, { capture: true, passive: true });
     window.addEventListener("keydown", onGesture, { capture: true, passive: true });
+    window.addEventListener("wheel", onGesture, { capture: true, passive: true });
     const unbindWatchers = bindJogAudioWatchers();
 
     return () => {
       window.removeEventListener("pointerdown", onGesture, { capture: true });
+      window.removeEventListener("click", onGesture, { capture: true });
+      window.removeEventListener("touchstart", onGesture, { capture: true });
       window.removeEventListener("keydown", onGesture, { capture: true });
+      window.removeEventListener("wheel", onGesture, { capture: true });
       unbindWatchers();
     };
   }, [soundEnabled]);
