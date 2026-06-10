@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from "react";
 import { motion, AnimatePresence, type MotionValue } from "motion/react";
 import { CHAMBERS } from "../types";
 import { CHAMBER_STEP_DEG, SCOUTER_AIM_DEG } from "../sceneOrbit";
-import { playGearMeshLock, playRatchetTick, ensureJogAudioReady, type RatchetKind } from "../audio/mechanicalDial";
+import { playGearMeshLock, playRatchetTick, unlockJogAudioSync, type RatchetKind } from "../audio/mechanicalDial";
 import { chamberI18nKey } from "../i18n/chamberKey";
 import { useTranslation } from "react-i18next";
 
@@ -288,6 +288,9 @@ export default function JogDial({
 
       if (Math.abs(e.deltaY) > 10 || Math.abs(e.deltaX) > 10) {
         lastWheelTime = now;
+        if (soundEnabled) {
+          unlockJogAudioSync();
+        }
         const delta = e.deltaY > 0 || e.deltaX > 0 ? 1 : -1;
         const next = Math.max(0, Math.min(CHAMBERS.length - 1, currentChamber + delta));
         if (next !== currentChamber) beginSettleSnap(next, { changeScene: true, withOvershoot: false });
@@ -332,7 +335,7 @@ export default function JogDial({
     velocityRef.current = 0;
     lastTickSlotRef.current = Math.round(-rotationRef.current / TICK_STEP);
     if (soundEnabled) {
-      void ensureJogAudioReady();
+      unlockJogAudioSync();
     }
   };
 
@@ -378,6 +381,9 @@ export default function JogDial({
     const handleEnd = () => {
       isDraggingRef.current = false;
       setIsDragging(false);
+      if (soundEnabled) {
+        unlockJogAudioSync();
+      }
 
       const physical = applyDetentWell(rotationRef.current);
       const targetIndex = detentIndex(physical);

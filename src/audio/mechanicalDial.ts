@@ -10,6 +10,7 @@ let sharedContext: AudioContext | null = null;
 let cachedBuffer: AudioBuffer | null = null;
 let loadPromise: Promise<AudioBuffer> | null = null;
 let readyPromise: Promise<AudioContext> | null = null;
+let pipelinePrimed = false;
 
 function getOrCreateContext(): AudioContext {
   if (!sharedContext) {
@@ -37,16 +38,49 @@ async function loadJogBuffer(ctx: AudioContext): Promise<AudioBuffer> {
   return loadPromise;
 }
 
-/** Resume AudioContext and preload jog.wav — call on first user gesture. */
+/** Call synchronously inside pointerdown / click / keydown handlers. */
+export function unlockJogAudioSync(): AudioContext | null {
+  try {
+    const ctx = getOrCreateContext();
+    if (ctx.state === "suspended") {
+      void ctx.resume();
+    }
+    if (!pipelinePrimed) {
+      pipelinePrimed = true;
+      const silent = ctx.createBuffer(1, 1, ctx.sampleRate);
+      const src = ctx.createBufferSource();
+      src.buffer = silent;
+      src.connect(ctx.destination);
+      src.start(0);
+    }
+    void loadJogBuffer(ctx);
+    if (ctx.state !== "running") {
+      readyPromise = null;
+    }
+    return ctx;
+  } catch {
+    return null;
+  }
+}
+
+/** Resume AudioContext and preload jog.wav — call after unlockJogAudioSync when possible. */
 export function ensureJogAudioReady(): Promise<AudioContext> {
+  unlockJogAudioSync();
+  const ctx = getOrCreateContext();
+  if (ctx.state !== "running") {
+    readyPromise = null;
+  }
   if (!readyPromise) {
     readyPromise = (async () => {
-      const ctx = getOrCreateContext();
-      if (ctx.state === "suspended") {
-        await ctx.resume();
+      const active = getOrCreateContext();
+      if (active.state === "suspended") {
+        await active.resume();
       }
-      await loadJogBuffer(ctx);
-      return ctx;
+      await loadJogBuffer(active);
+      if (active.state === "suspended") {
+        await active.resume();
+      }
+      return active;
     })().catch((err) => {
       readyPromise = null;
       throw err;
@@ -62,6 +96,8 @@ async function playSample(
   if (ctx.state === "suspended") {
     await ctx.resume();
   }
+  if (ctx.state !== "running") return;
+
   const buffer = await loadJogBuffer(ctx);
 
   const src = ctx.createBufferSource();
