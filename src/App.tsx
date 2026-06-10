@@ -5,7 +5,7 @@ import ChamberLayout from "./components/ChamberLayout";
 import SoundToggle from "./components/SoundToggle";
 import LanguageSwitcher from "./components/LanguageSwitcher";
 import { useSoundEnabled } from "./hooks/useSoundEnabled";
-import { activateJogAudio, activateJogAudioFromGesture } from "./audio/mechanicalDial";
+import { activateJogAudio, primeJogAudioFromGesture, bindJogAudioWatchers } from "./audio/mechanicalDial";
 import { CHAMBERS } from "./types";
 
 // Import individual Chambers
@@ -38,15 +38,17 @@ export default function App() {
     if (!soundEnabled) return;
 
     const onGesture = () => {
-      activateJogAudioFromGesture();
+      primeJogAudioFromGesture();
     };
 
     window.addEventListener("pointerdown", onGesture, { capture: true, passive: true });
     window.addEventListener("keydown", onGesture, { capture: true, passive: true });
+    const unbindWatchers = bindJogAudioWatchers();
 
     return () => {
       window.removeEventListener("pointerdown", onGesture, { capture: true });
       window.removeEventListener("keydown", onGesture, { capture: true });
+      unbindWatchers();
     };
   }, [soundEnabled]);
 
