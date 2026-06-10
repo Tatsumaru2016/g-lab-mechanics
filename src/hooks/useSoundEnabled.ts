@@ -1,9 +1,8 @@
 import { useCallback, useState } from "react";
 
-/** v2: reset stale OFF values; default is always ON for new visitors */
-const STORAGE_KEY = "ghub-sfx-enabled-v2";
-const LEGACY_KEYS = ["ghub-sfx-enabled", "glab-sfx-enabled"] as const;
-export const DEFAULT_SOUND_ENABLED = true;
+/** v3: default OFF — user opts in via toggle (avoids silent-until-click confusion) */
+const STORAGE_KEY = "ghub-sfx-enabled-v3";
+export const DEFAULT_SOUND_ENABLED = false;
 
 function readStoredSoundEnabled(): boolean {
   try {
@@ -11,19 +10,7 @@ function readStoredSoundEnabled(): boolean {
     if (stored !== null) {
       return stored === "true";
     }
-
-    // Only inherit legacy preference when it was explicitly ON
-    for (const legacyKey of LEGACY_KEYS) {
-      const legacy = localStorage.getItem(legacyKey);
-      if (legacy === "true") {
-        localStorage.setItem(STORAGE_KEY, "true");
-        for (const key of LEGACY_KEYS) localStorage.removeItem(key);
-        return true;
-      }
-    }
-
-    for (const key of LEGACY_KEYS) localStorage.removeItem(key);
-    localStorage.setItem(STORAGE_KEY, "true");
+    localStorage.setItem(STORAGE_KEY, String(DEFAULT_SOUND_ENABLED));
     return DEFAULT_SOUND_ENABLED;
   } catch {
     return DEFAULT_SOUND_ENABLED;
