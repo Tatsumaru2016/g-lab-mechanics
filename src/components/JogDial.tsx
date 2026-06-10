@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from "react";
 import { motion, AnimatePresence, type MotionValue } from "motion/react";
 import { CHAMBERS } from "../types";
 import { CHAMBER_STEP_DEG, SCOUTER_AIM_DEG } from "../sceneOrbit";
-import { playGearMeshLock, playRatchetTick, type RatchetKind } from "../audio/mechanicalDial";
+import { playGearMeshLock, playRatchetTick, ensureJogAudioReady, type RatchetKind } from "../audio/mechanicalDial";
 import { chamberI18nKey } from "../i18n/chamberKey";
 import { useTranslation } from "react-i18next";
 
@@ -163,7 +163,6 @@ export default function JogDial({
   soundEnabled = true,
 }: JogDialProps) {
   const dialRef = useRef<HTMLDivElement>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
   const { t } = useTranslation();
 
   const [rotation, setRotation] = useState(detentAngle(currentChamber));
@@ -186,22 +185,9 @@ export default function JogDial({
   const kickTimerRef = useRef<number | null>(null);
   const lastTickSlotRef = useRef(0);
 
-  const getAudioContext = () => {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-    const ctx = audioContextRef.current;
-    if (ctx.state === "suspended") ctx.resume();
-    return ctx;
-  };
-
   const triggerSnapFeedback = (withScenePulse: boolean) => {
     if (soundEnabled) {
-      try {
-        playGearMeshLock(getAudioContext(), withScenePulse ? "full" : "confirm");
-      } catch {
-        // Audio fallback
-      }
+      playGearMeshLock(withScenePulse ? "full" : "confirm");
     }
     setDetentKick(true);
     // Lock VFX on every snap; full pulse when scene index actually changed
@@ -345,8 +331,8 @@ export default function JogDial({
     lastMoveTimeRef.current = performance.now();
     velocityRef.current = 0;
     lastTickSlotRef.current = Math.round(-rotationRef.current / TICK_STEP);
-    if (audioContextRef.current?.state === "suspended") {
-      audioContextRef.current.resume();
+    if (soundEnabled) {
+      void ensureJogAudioReady();
     }
   };
 
@@ -374,11 +360,7 @@ export default function JogDial({
       if (tickSlot !== lastTickSlotRef.current) {
         lastTickSlotRef.current = tickSlot;
         if (soundEnabled) {
-          try {
-            playRatchetTick(getAudioContext(), ratchetKindForTickSlot(tickSlot));
-          } catch {
-            // Audio fallback
-          }
+          playRatchetTick(ratchetKindForTickSlot(tickSlot));
         }
       }
 

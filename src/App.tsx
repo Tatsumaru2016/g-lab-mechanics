@@ -5,7 +5,7 @@ import ChamberLayout from "./components/ChamberLayout";
 import SoundToggle from "./components/SoundToggle";
 import LanguageSwitcher from "./components/LanguageSwitcher";
 import { useSoundEnabled } from "./hooks/useSoundEnabled";
-import { playGearMeshLock, warmUpJogAudio } from "./audio/mechanicalDial";
+import { playGearMeshLock, ensureJogAudioReady } from "./audio/mechanicalDial";
 import { CHAMBERS } from "./types";
 
 // Import individual Chambers
@@ -33,58 +33,13 @@ export default function App() {
   useEffect(() => {
     document.title = t("meta.title");
   }, [t, i18n.language]);
-  const sfxContextRef = useRef<AudioContext | null>(null);
-  const sfxPrimedRef = useRef(false);
-
-  const primeSfx = useCallback(() => {
-    if (!soundEnabled || sfxPrimedRef.current) return;
-    sfxPrimedRef.current = true;
-    try {
-      if (!sfxContextRef.current) {
-        sfxContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-      }
-      void warmUpJogAudio(sfxContextRef.current);
-    } catch {
-      // Audio unavailable
-    }
-  }, [soundEnabled]);
-
-  useEffect(() => {
-    if (!soundEnabled) {
-      sfxPrimedRef.current = false;
-      return;
-    }
-
-    const onFirstGesture = () => {
-      primeSfx();
-    };
-
-    window.addEventListener("pointerdown", onFirstGesture, { once: true, passive: true });
-    window.addEventListener("keydown", onFirstGesture, { once: true });
-
-    return () => {
-      window.removeEventListener("pointerdown", onFirstGesture);
-      window.removeEventListener("keydown", onFirstGesture);
-    };
-  }, [soundEnabled, primeSfx]);
 
   const handleSoundToggle = useCallback(() => {
     const nextEnabled = toggleSound();
     if (nextEnabled) {
-      window.setTimeout(() => {
-        try {
-          if (!sfxContextRef.current) {
-            sfxContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-          }
-          const ctx = sfxContextRef.current;
-          sfxPrimedRef.current = true;
-          void warmUpJogAudio(ctx).then(() => {
-            playGearMeshLock(ctx, "confirm");
-          });
-        } catch {
-          // Audio fallback
-        }
-      }, 50);
+      void ensureJogAudioReady().then(() => {
+        playGearMeshLock("confirm");
+      });
     }
   }, [toggleSound]);
 
