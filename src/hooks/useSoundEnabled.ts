@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 
-/** v3: default OFF — user opts in via toggle (avoids silent-until-click confusion) */
-const STORAGE_KEY = "ghub-sfx-enabled-v3";
+/** v4: force default OFF for all visitors (icon = VolumeX / grey) */
+const STORAGE_KEY = "ghub-sfx-enabled-v4";
 export const DEFAULT_SOUND_ENABLED = false;
 
 function readStoredSoundEnabled(): boolean {

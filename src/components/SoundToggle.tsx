@@ -18,12 +18,14 @@ export default function SoundToggle({ enabled, onToggle, className = "" }: Sound
       aria-pressed={enabled}
       aria-label={enabled ? t("common.disableSound") : t("common.enableSound")}
       title={label}
-      className={`glass-chrome p-2.5 rounded-lg flex items-center justify-center transition-all cursor-pointer active:scale-95 ${className}`}
+      className={`glass-chrome p-2.5 rounded-lg flex items-center justify-center transition-all cursor-pointer active:scale-95 ${
+        enabled ? "" : "opacity-70"
+      } ${className}`}
     >
       {enabled ? (
         <Volume2 className="w-3.5 h-3.5 text-[#0057FF]" aria-hidden />
       ) : (
-        <VolumeX className="w-3.5 h-3.5 text-neutral-600" aria-hidden />
+        <VolumeX className="w-3.5 h-3.5 text-neutral-500" aria-hidden />
       )}
     </button>
   );
