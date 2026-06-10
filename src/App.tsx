@@ -5,7 +5,7 @@ import ChamberLayout from "./components/ChamberLayout";
 import SoundToggle from "./components/SoundToggle";
 import LanguageSwitcher from "./components/LanguageSwitcher";
 import { useSoundEnabled } from "./hooks/useSoundEnabled";
-import { playGearMeshLock, ensureJogAudioReady, unlockJogAudioSync } from "./audio/mechanicalDial";
+import { activateJogAudio, activateJogAudioFromGesture } from "./audio/mechanicalDial";
 import { CHAMBERS } from "./types";
 
 // Import individual Chambers
@@ -37,26 +37,23 @@ export default function App() {
   useEffect(() => {
     if (!soundEnabled) return;
 
-    const unlock = () => {
-      unlockJogAudioSync();
+    const onGesture = () => {
+      activateJogAudioFromGesture();
     };
 
-    window.addEventListener("pointerdown", unlock, { capture: true, passive: true });
-    window.addEventListener("keydown", unlock, { capture: true, passive: true });
+    window.addEventListener("pointerdown", onGesture, { capture: true, passive: true });
+    window.addEventListener("keydown", onGesture, { capture: true, passive: true });
 
     return () => {
-      window.removeEventListener("pointerdown", unlock, { capture: true });
-      window.removeEventListener("keydown", unlock, { capture: true });
+      window.removeEventListener("pointerdown", onGesture, { capture: true });
+      window.removeEventListener("keydown", onGesture, { capture: true });
     };
   }, [soundEnabled]);
 
   const handleSoundToggle = useCallback(() => {
     const nextEnabled = toggleSound();
     if (nextEnabled) {
-      unlockJogAudioSync();
-      void ensureJogAudioReady().then(() => {
-        playGearMeshLock("confirm");
-      });
+      void activateJogAudio();
     }
   }, [toggleSound]);
 

@@ -10,7 +10,8 @@ let sharedContext: AudioContext | null = null;
 let cachedBuffer: AudioBuffer | null = null;
 let loadPromise: Promise<AudioBuffer> | null = null;
 let readyPromise: Promise<AudioContext> | null = null;
-let pipelinePrimed = false;
+let sfxActivated = false;
+let activationInFlight: Promise<AudioContext> | null = null;
 
 function getOrCreateContext(): AudioContext {
   if (!sharedContext) {
@@ -45,14 +46,6 @@ export function unlockJogAudioSync(): AudioContext | null {
     if (ctx.state === "suspended") {
       void ctx.resume();
     }
-    if (!pipelinePrimed) {
-      pipelinePrimed = true;
-      const silent = ctx.createBuffer(1, 1, ctx.sampleRate);
-      const src = ctx.createBufferSource();
-      src.buffer = silent;
-      src.connect(ctx.destination);
-      src.start(0);
-    }
     void loadJogBuffer(ctx);
     if (ctx.state !== "running") {
       readyPromise = null;
@@ -63,7 +56,7 @@ export function unlockJogAudioSync(): AudioContext | null {
   }
 }
 
-/** Resume AudioContext and preload jog.wav — call after unlockJogAudioSync when possible. */
+/** Resume AudioContext and preload jog.wav. */
 export function ensureJogAudioReady(): Promise<AudioContext> {
   unlockJogAudioSync();
   const ctx = getOrCreateContext();
@@ -87,6 +80,41 @@ export function ensureJogAudioReady(): Promise<AudioContext> {
     });
   }
   return readyPromise;
+}
+
+/**
+ * Same path as toggling sound OFF → ON:
+ * unlock, preload sample, play confirm lock click.
+ */
+export function activateJogAudio(options: { playConfirm?: boolean } = {}): Promise<AudioContext> {
+  const playConfirm = options.playConfirm ?? true;
+  unlockJogAudioSync();
+  if (!activationInFlight) {
+    activationInFlight = ensureJogAudioReady().finally(() => {
+      activationInFlight = null;
+    });
+  }
+  return activationInFlight.then((ctx) => {
+    sfxActivated = true;
+    if (playConfirm) {
+      void playSample(ctx, {
+        gain: 0.85 * 0.72,
+        playbackRate: 0.96,
+        duration: 0.09,
+      });
+    }
+    return ctx;
+  });
+}
+
+/** First user gesture while sound is ON — mirrors OFF→ON activation once per session. */
+export function activateJogAudioFromGesture(): void {
+  if (sfxActivated || activationInFlight) return;
+  void activateJogAudio();
+}
+
+export function isJogAudioActivated(): boolean {
+  return sfxActivated;
 }
 
 async function playSample(
