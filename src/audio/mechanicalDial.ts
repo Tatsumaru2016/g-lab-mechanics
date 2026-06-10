@@ -5,6 +5,8 @@
 export type RatchetKind = "minor" | "medium" | "major";
 
 const JOG_SAMPLE_URL = `${import.meta.env.BASE_URL}audio/jog.wav`;
+/** Boost perceived loudness — short jog.wav slices read quiet on laptop speakers / Pages. */
+const SFX_MASTER_GAIN = 1.75;
 
 let sharedContext: AudioContext | null = null;
 let cachedBuffer: AudioBuffer | null = null;
@@ -98,9 +100,9 @@ export function activateJogAudio(options: { playConfirm?: boolean } = {}): Promi
     sfxActivated = true;
     if (playConfirm) {
       void playSample(ctx, {
-        gain: 0.85 * 0.72,
+        gain: 0.92 * 0.72,
         playbackRate: 0.96,
-        duration: 0.09,
+        duration: 0.11,
       });
     }
     return ctx;
@@ -133,7 +135,7 @@ async function playSample(
   src.playbackRate.value = opts.playbackRate ?? 1;
 
   const gain = ctx.createGain();
-  gain.gain.setValueAtTime(opts.gain, ctx.currentTime);
+  gain.gain.setValueAtTime(Math.min(1, opts.gain * SFX_MASTER_GAIN), ctx.currentTime);
 
   src.connect(gain);
   gain.connect(ctx.destination);
@@ -156,22 +158,22 @@ function runSample(
 /** Every 6° ratchet step while dragging */
 export function playRatchetTick(kind: RatchetKind) {
   if (kind === "minor") {
-    runSample({ gain: 0.42, playbackRate: 1.08, duration: 0.06 });
+    runSample({ gain: 0.48, playbackRate: 1.08, duration: 0.07 });
     return;
   }
   if (kind === "medium") {
-    runSample({ gain: 0.58, playbackRate: 1, duration: 0.08 });
+    runSample({ gain: 0.64, playbackRate: 1, duration: 0.09 });
     return;
   }
-  runSample({ gain: 0.78, playbackRate: 0.94, duration: 0.1 });
+  runSample({ gain: 0.82, playbackRate: 0.94, duration: 0.11 });
 }
 
 /** Final detent lock when dial settles on a chamber */
 export function playGearMeshLock(variant: "full" | "confirm" = "full") {
   const amp = variant === "full" ? 1 : 0.72;
   runSample({
-    gain: 0.85 * amp,
+    gain: 0.92 * amp,
     playbackRate: variant === "full" ? 0.88 : 0.96,
-    duration: variant === "full" ? 0.14 : 0.09,
+    duration: variant === "full" ? 0.16 : 0.11,
   });
 }
