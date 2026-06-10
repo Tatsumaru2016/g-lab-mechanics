@@ -1,24 +1,39 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-/** v4: force default OFF for all visitors (icon = VolumeX / grey) */
-const STORAGE_KEY = "ghub-sfx-enabled-v4";
-export const DEFAULT_SOUND_ENABLED = false;
+const STORAGE_KEY = "ghub-sfx-enabled-v5";
+const LEGACY_KEYS = [
+  "ghub-sfx-enabled-v4",
+  "ghub-sfx-enabled-v3",
+  "ghub-sfx-enabled-v2",
+  "ghub-sfx-enabled",
+  "glab-sfx-enabled",
+] as const;
 
 function readStoredSoundEnabled(): boolean {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored !== null) {
-      return stored === "true";
-    }
-    localStorage.setItem(STORAGE_KEY, String(DEFAULT_SOUND_ENABLED));
-    return DEFAULT_SOUND_ENABLED;
+    return localStorage.getItem(STORAGE_KEY) === "true";
   } catch {
-    return DEFAULT_SOUND_ENABLED;
+    return false;
+  }
+}
+
+function purgeLegacySoundKeys(): void {
+  try {
+    for (const key of LEGACY_KEYS) {
+      localStorage.removeItem(key);
+    }
+  } catch {
+    // Storage unavailable
   }
 }
 
 export function useSoundEnabled() {
-  const [soundEnabled, setSoundEnabledState] = useState(readStoredSoundEnabled);
+  const [soundEnabled, setSoundEnabledState] = useState(false);
+
+  useEffect(() => {
+    purgeLegacySoundKeys();
+    setSoundEnabledState(readStoredSoundEnabled());
+  }, []);
 
   const setSoundEnabled = useCallback((enabled: boolean) => {
     setSoundEnabledState(enabled);
